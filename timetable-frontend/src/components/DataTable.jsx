@@ -1,7 +1,13 @@
 import { useState } from "react";
 import Spinner from "./Spinner";
 
-export default function DataTable({ columns, rows, onEdit, onDelete, loading }) {
+export default function DataTable({
+  columns,
+  rows,
+  onEdit,
+  onDelete,
+  loading,
+}) {
   const [confirmingId, setConfirmingId] = useState(null);
 
   if (loading) {
@@ -26,16 +32,28 @@ export default function DataTable({ columns, rows, onEdit, onDelete, loading }) 
         {rows.map((row) => (
           <tr key={row.id}>
             {columns.map((column) => (
-              <td key={column.key}>{column.render ? column.render(row[column.key], row) : row[column.key]}</td>
+              <td key={column.key}>
+                {column.render
+                  ? column.render(row[column.key], row)
+                  : row[column.key]}
+              </td>
             ))}
             <td>
-              <button className="btn btn-ghost" type="button" onClick={() => onEdit(row)}>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => onEdit(row)}
+              >
                 Edit
               </button>{" "}
               {confirmingId === row.id ? (
                 <>
                   Sure?{" "}
-                  <button className="btn btn-ghost" type="button" onClick={() => setConfirmingId(null)}>
+                  <button
+                    className="btn btn-ghost"
+                    type="button"
+                    onClick={() => setConfirmingId(null)}
+                  >
                     No
                   </button>{" "}
                   <button
@@ -50,7 +68,11 @@ export default function DataTable({ columns, rows, onEdit, onDelete, loading }) 
                   </button>
                 </>
               ) : (
-                <button className="btn btn-danger" type="button" onClick={() => setConfirmingId(row.id)}>
+                <button
+                  className="btn btn-danger"
+                  type="button"
+                  onClick={() => setConfirmingId(row.id)}
+                >
                   Delete
                 </button>
               )}

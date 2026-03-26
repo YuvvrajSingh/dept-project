@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { assignTeacherSubject, getTeacherSubjects, getTeachers, removeTeacherSubject } from "../api/teachers";
-import { assignClassSubject, getClassSubjects, getClasses, removeClassSubject } from "../api/classes";
+import {
+  assignTeacherSubject,
+  getTeacherSubjects,
+  getTeachers,
+  removeTeacherSubject,
+} from "../api/teachers";
+import {
+  assignClassSubject,
+  getClassSubjects,
+  getClasses,
+  removeClassSubject,
+} from "../api/classes";
 import { getSubjects } from "../api/subjects";
 import ConflictBanner from "../components/ConflictBanner";
 import Spinner from "../components/Spinner";
@@ -187,7 +197,10 @@ export default function Assignments({ showToast }) {
 
           <div className="form-group">
             <label>Teacher</label>
-            <select value={teacherId} onChange={(event) => setTeacherId(event.target.value)}>
+            <select
+              value={teacherId}
+              onChange={(event) => setTeacherId(event.target.value)}
+            >
               <option value="">Select teacher</option>
               {teachers.map((teacher) => (
                 <option key={teacher.id} value={teacher.id}>
@@ -201,7 +214,11 @@ export default function Assignments({ showToast }) {
             {teacherSubjects.map((item) => (
               <span className="chip" key={item.id}>
                 {item.subject.code}
-                <button className="chip-remove" type="button" onClick={() => handleRemoveTeacher(item.subjectId)}>
+                <button
+                  className="chip-remove"
+                  type="button"
+                  onClick={() => handleRemoveTeacher(item.subjectId)}
+                >
                   x
                 </button>
               </span>
@@ -209,7 +226,12 @@ export default function Assignments({ showToast }) {
           </div>
 
           <div className="form-row" style={{ marginTop: 12 }}>
-            <select value={teacherSubjectToAssign} onChange={(event) => setTeacherSubjectToAssign(event.target.value)}>
+            <select
+              value={teacherSubjectToAssign}
+              onChange={(event) =>
+                setTeacherSubjectToAssign(event.target.value)
+              }
+            >
               <option value="">Assign subject</option>
               {unassignedTeacherSubjects.map((subject) => (
                 <option key={subject.id} value={subject.id}>
@@ -217,7 +239,11 @@ export default function Assignments({ showToast }) {
                 </option>
               ))}
             </select>
-            <button className="btn btn-primary" type="button" onClick={handleAssignTeacher}>
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={handleAssignTeacher}
+            >
               Assign
             </button>
           </div>
@@ -229,7 +255,10 @@ export default function Assignments({ showToast }) {
 
           <div className="form-group">
             <label>Class</label>
-            <select value={classId} onChange={(event) => setClassId(event.target.value)}>
+            <select
+              value={classId}
+              onChange={(event) => setClassId(event.target.value)}
+            >
               <option value="">Select class</option>
               {classes.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -243,7 +272,11 @@ export default function Assignments({ showToast }) {
             {classSubjects.map((item) => (
               <span className="chip" key={item.id}>
                 {item.subject.code}
-                <button className="chip-remove" type="button" onClick={() => handleRemoveClass(item.subjectId)}>
+                <button
+                  className="chip-remove"
+                  type="button"
+                  onClick={() => handleRemoveClass(item.subjectId)}
+                >
                   x
                 </button>
               </span>
@@ -251,7 +284,10 @@ export default function Assignments({ showToast }) {
           </div>
 
           <div className="form-row" style={{ marginTop: 12 }}>
-            <select value={classSubjectToAssign} onChange={(event) => setClassSubjectToAssign(event.target.value)}>
+            <select
+              value={classSubjectToAssign}
+              onChange={(event) => setClassSubjectToAssign(event.target.value)}
+            >
               <option value="">Assign subject</option>
               {unassignedClassSubjects.map((subject) => (
                 <option key={subject.id} value={subject.id}>
@@ -259,7 +295,11 @@ export default function Assignments({ showToast }) {
                 </option>
               ))}
             </select>
-            <button className="btn btn-primary" type="button" onClick={handleAssignClass}>
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={handleAssignClass}
+            >
               Assign
             </button>
           </div>

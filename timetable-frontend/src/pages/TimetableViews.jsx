@@ -2,10 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { getClasses } from "../api/classes";
 import { getRooms } from "../api/rooms";
 import { getTeachers } from "../api/teachers";
-import { getClassTimetable, getRoomTimetable, getTeacherTimetable } from "../api/timetable";
+import {
+  getClassTimetable,
+  getRoomTimetable,
+  getTeacherTimetable,
+} from "../api/timetable";
 import Spinner from "../components/Spinner";
 import TimetableGrid from "../components/TimetableGrid";
-import { buildRoomMatrix, buildTeacherMatrix, createEmptyMatrix } from "../utils/matrix";
+import {
+  buildRoomMatrix,
+  buildTeacherMatrix,
+  createEmptyMatrix,
+} from "../utils/matrix";
 import { YEAR_OPTIONS, getYearLabel } from "../utils/format";
 
 const tabs = ["Class Matrix", "Teacher Schedule", "Room Occupancy"];
@@ -52,7 +60,10 @@ export default function TimetableViews({ showToast }) {
   }, [showToast]);
 
   const filteredClasses = useMemo(
-    () => classes.filter((item) => item.branch?.name === branch && item.year === Number(year)),
+    () =>
+      classes.filter(
+        (item) => item.branch?.name === branch && item.year === Number(year),
+      ),
     [classes, branch, year],
   );
 
@@ -92,7 +103,12 @@ export default function TimetableViews({ showToast }) {
 
       <div className="tabs">
         {tabs.map((item) => (
-          <button key={item} className={`btn ${tab === item ? "btn-primary" : "btn-ghost"}`} type="button" onClick={() => setTab(item)}>
+          <button
+            key={item}
+            className={`btn ${tab === item ? "btn-primary" : "btn-ghost"}`}
+            type="button"
+            onClick={() => setTab(item)}
+          >
             {item}
           </button>
         ))}
@@ -103,7 +119,10 @@ export default function TimetableViews({ showToast }) {
           <div className="top-filter">
             <div className="form-group">
               <label>Branch</label>
-              <select value={branch} onChange={(event) => setBranch(event.target.value)}>
+              <select
+                value={branch}
+                onChange={(event) => setBranch(event.target.value)}
+              >
                 {BRANCHES.map((item) => (
                   <option key={item} value={item}>
                     {item}
@@ -113,7 +132,10 @@ export default function TimetableViews({ showToast }) {
             </div>
             <div className="form-group">
               <label>Year</label>
-              <select value={year} onChange={(event) => setYear(Number(event.target.value))}>
+              <select
+                value={year}
+                onChange={(event) => setYear(Number(event.target.value))}
+              >
                 {YEAR_OPTIONS.map((item) => (
                   <option key={item} value={item}>
                     {getYearLabel(item)}
@@ -123,7 +145,10 @@ export default function TimetableViews({ showToast }) {
             </div>
             <div className="form-group">
               <label>Class</label>
-              <select value={classId} onChange={(event) => setClassId(event.target.value)}>
+              <select
+                value={classId}
+                onChange={(event) => setClassId(event.target.value)}
+              >
                 <option value="">Select class</option>
                 {filteredClasses.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -139,7 +164,10 @@ export default function TimetableViews({ showToast }) {
           <div className="top-filter">
             <div className="form-group">
               <label>Teacher</label>
-              <select value={teacherId} onChange={(event) => setTeacherId(event.target.value)}>
+              <select
+                value={teacherId}
+                onChange={(event) => setTeacherId(event.target.value)}
+              >
                 <option value="">Select teacher</option>
                 {teachers.map((teacher) => (
                   <option key={teacher.id} value={teacher.id}>
@@ -155,7 +183,10 @@ export default function TimetableViews({ showToast }) {
           <div className="top-filter">
             <div className="form-group">
               <label>Room</label>
-              <select value={roomId} onChange={(event) => setRoomId(event.target.value)}>
+              <select
+                value={roomId}
+                onChange={(event) => setRoomId(event.target.value)}
+              >
                 <option value="">Select room</option>
                 {rooms.map((room) => (
                   <option key={room.id} value={room.id}>
@@ -173,7 +204,12 @@ export default function TimetableViews({ showToast }) {
       </div>
 
       <div className="panel">
-        <TimetableGrid matrix={matrix} readOnly loading={loadingGrid} onCellClick={() => {}} />
+        <TimetableGrid
+          matrix={matrix}
+          readOnly
+          loading={loadingGrid}
+          onCellClick={() => {}}
+        />
       </div>
     </div>
   );

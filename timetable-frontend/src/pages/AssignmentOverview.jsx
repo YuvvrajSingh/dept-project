@@ -16,7 +16,10 @@ export default function AssignmentOverview({ showToast }) {
     async function loadOverview() {
       setLoading(true);
       try {
-        const [teachers, classesData] = await Promise.all([getTeachers(), getClasses()]);
+        const [teachers, classesData] = await Promise.all([
+          getTeachers(),
+          getClasses(),
+        ]);
 
         const teacherSubjectPairs = await Promise.all(
           teachers.map(async (teacher) => {
@@ -93,17 +96,27 @@ export default function AssignmentOverview({ showToast }) {
 
       <div className="panel" style={{ marginBottom: 12 }}>
         <h3 className="panel-title">Teacher-Subject Mapping Per Class</h3>
-        <div className="empty-state" style={{ textAlign: "left", padding: "0 0 8px 0" }}>
-          This page shows each class, its assigned subjects, and the teachers currently assigned to those subjects.
+        <div
+          className="empty-state"
+          style={{ textAlign: "left", padding: "0 0 8px 0" }}
+        >
+          This page shows each class, its assigned subjects, and the teachers
+          currently assigned to those subjects.
         </div>
       </div>
 
       {classesWithData.map(({ classSection, subjects }) => (
-        <div key={classSection.id} className="panel" style={{ marginBottom: 12 }}>
+        <div
+          key={classSection.id}
+          className="panel"
+          style={{ marginBottom: 12 }}
+        >
           <h3 className="panel-title">{getClassLabel(classSection)}</h3>
 
           {!subjects.length ? (
-            <div className="empty-state">No subjects assigned to this class yet.</div>
+            <div className="empty-state">
+              No subjects assigned to this class yet.
+            </div>
           ) : (
             <table>
               <thead>
@@ -124,14 +137,19 @@ export default function AssignmentOverview({ showToast }) {
                         {subject.code} - {subject.name}
                       </td>
                       <td>
-                        <span className={`badge ${subject.type === "LAB" ? "badge-lab" : "badge-theory"}`}>
+                        <span
+                          className={`badge ${subject.type === "LAB" ? "badge-lab" : "badge-theory"}`}
+                        >
                           {subject.type}
                         </span>
                       </td>
                       <td>
                         {mappedTeachers.length ? (
                           mappedTeachers.map((teacher) => (
-                            <span className="chip" key={`${subject.id}-${teacher.id}`}>
+                            <span
+                              className="chip"
+                              key={`${subject.id}-${teacher.id}`}
+                            >
                               {teacher.abbreviation}
                             </span>
                           ))

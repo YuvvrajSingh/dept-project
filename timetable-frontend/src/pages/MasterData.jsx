@@ -1,9 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createTeacher, deleteTeacher, getTeachers, updateTeacher } from "../api/teachers";
-import { createSubject, deleteSubject, getSubjects, updateSubject } from "../api/subjects";
+import {
+  createTeacher,
+  deleteTeacher,
+  getTeachers,
+  updateTeacher,
+} from "../api/teachers";
+import {
+  createSubject,
+  deleteSubject,
+  getSubjects,
+  updateSubject,
+} from "../api/subjects";
 import { createRoom, deleteRoom, getRooms, updateRoom } from "../api/rooms";
 import { createLab, deleteLab, getLabs, updateLab } from "../api/labs";
-import { createClass, deleteClass, getClasses, updateClass } from "../api/classes";
+import {
+  createClass,
+  deleteClass,
+  getClasses,
+  updateClass,
+} from "../api/classes";
 import DataTable from "../components/DataTable";
 import EntityDrawer from "../components/EntityDrawer";
 import Spinner from "../components/Spinner";
@@ -62,7 +77,13 @@ export default function MasterData({ showToast }) {
         ],
         fields: [
           { key: "name", label: "Name", type: "text", required: true },
-          { key: "abbreviation", label: "Short Name", type: "text", required: true, maxLength: 6 },
+          {
+            key: "abbreviation",
+            label: "Short Name",
+            type: "text",
+            required: true,
+            maxLength: 6,
+          },
         ],
         create: createTeacher,
         update: updateTeacher,
@@ -75,7 +96,13 @@ export default function MasterData({ showToast }) {
           {
             key: "type",
             label: "Type",
-            render: (value) => <span className={`badge ${value === "LAB" ? "badge-lab" : "badge-theory"}`}>{value}</span>,
+            render: (value) => (
+              <span
+                className={`badge ${value === "LAB" ? "badge-lab" : "badge-theory"}`}
+              >
+                {value}
+              </span>
+            ),
           },
           { key: "creditHours", label: "Credit Hours" },
         ],
@@ -92,7 +119,12 @@ export default function MasterData({ showToast }) {
               { value: "LAB", label: "LAB" },
             ],
           },
-          { key: "creditHours", label: "Credit Hours", type: "number", required: true },
+          {
+            key: "creditHours",
+            label: "Credit Hours",
+            type: "number",
+            required: true,
+          },
         ],
         create: createSubject,
         update: updateSubject,
@@ -126,8 +158,16 @@ export default function MasterData({ showToast }) {
       },
       Classes: {
         columns: [
-          { key: "branch", label: "Branch", render: (_, row) => row.branch.name },
-          { key: "year", label: "Year", render: (value) => getYearLabel(value) },
+          {
+            key: "branch",
+            label: "Branch",
+            render: (_, row) => row.branch.name,
+          },
+          {
+            key: "year",
+            label: "Year",
+            render: (value) => getYearLabel(value),
+          },
         ],
         fields: [
           {
@@ -136,7 +176,10 @@ export default function MasterData({ showToast }) {
             type: "select",
             required: true,
             numeric: true,
-            options: BRANCH_OPTIONS.map((branch) => ({ value: branch.id, label: branch.name })),
+            options: BRANCH_OPTIONS.map((branch) => ({
+              value: branch.id,
+              label: branch.name,
+            })),
           },
           {
             key: "year",
@@ -144,7 +187,10 @@ export default function MasterData({ showToast }) {
             type: "select",
             required: true,
             numeric: true,
-            options: YEAR_OPTIONS.map((year) => ({ value: year, label: getYearLabel(year) })),
+            options: YEAR_OPTIONS.map((year) => ({
+              value: year,
+              label: getYearLabel(year),
+            })),
           },
         ],
         create: createClass,
@@ -159,7 +205,9 @@ export default function MasterData({ showToast }) {
 
   const handleSubmit = async (formData) => {
     const payload = Object.fromEntries(
-      Object.entries(formData).filter(([, value]) => value !== "" && value !== undefined && value !== null),
+      Object.entries(formData).filter(
+        ([, value]) => value !== "" && value !== undefined && value !== null,
+      ),
     );
 
     if (editingRow) {

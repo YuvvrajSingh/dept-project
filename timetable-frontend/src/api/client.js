@@ -12,7 +12,9 @@ export async function request(method, path, body) {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    const isJson = response.headers.get("content-type")?.includes("application/json");
+    const isJson = response.headers
+      .get("content-type")
+      ?.includes("application/json");
     const data = isJson ? await response.json() : null;
 
     if (!response.ok) {
@@ -32,7 +34,8 @@ export async function request(method, path, body) {
     throw {
       status: 0,
       error: "NETWORK_ERROR",
-      message: "Cannot reach server. Check if backend is running at localhost:3000",
+      message:
+        "Cannot reach server. Check if backend is running at localhost:3000",
     };
   }
 }

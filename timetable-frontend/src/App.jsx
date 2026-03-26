@@ -33,15 +33,34 @@ function App() {
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/master" element={<MasterData showToast={showToast} />} />
-            <Route path="/assignments" element={<Assignments showToast={showToast} />} />
-            <Route path="/assignment-overview" element={<AssignmentOverview showToast={showToast} />} />
-            <Route path="/builder" element={<TimetableBuilder showToast={showToast} />} />
-            <Route path="/views" element={<TimetableViews showToast={showToast} />} />
+            <Route
+              path="/master"
+              element={<MasterData showToast={showToast} />}
+            />
+            <Route
+              path="/assignments"
+              element={<Assignments showToast={showToast} />}
+            />
+            <Route
+              path="/assignment-overview"
+              element={<AssignmentOverview showToast={showToast} />}
+            />
+            <Route
+              path="/builder"
+              element={<TimetableBuilder showToast={showToast} />}
+            />
+            <Route
+              path="/views"
+              element={<TimetableViews showToast={showToast} />}
+            />
           </Routes>
         </main>
       </div>
-      <Toast message={toast.message} type={toast.type} onDismiss={() => setToast({ message: "", type: "success" })} />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast({ message: "", type: "success" })}
+      />
     </BrowserRouter>
   );
 }

@@ -5,7 +5,12 @@ export default function ConflictBanner({ message, type, onGoToAssignments }) {
     <div className={`conflict-banner ${type}`}>
       <div>{message}</div>
       {type === "prerequisite" && onGoToAssignments ? (
-        <button className="btn btn-ghost" type="button" onClick={onGoToAssignments} style={{ marginTop: 8 }}>
+        <button
+          className="btn btn-ghost"
+          type="button"
+          onClick={onGoToAssignments}
+          style={{ marginTop: 8 }}
+        >
           Go to Assignments
         </button>
       ) : null}

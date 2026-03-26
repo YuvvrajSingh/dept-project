@@ -44,7 +44,12 @@ export default function EntityDrawer({
       <div className="drawer">
         <div className="page-header">
           <h3>{title}</h3>
-          <button className="btn btn-ghost" type="button" onClick={onClose} disabled={submitting}>
+          <button
+            className="btn btn-ghost"
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+          >
             Close
           </button>
         </div>
@@ -57,7 +62,14 @@ export default function EntityDrawer({
                   value={formData[field.key] ?? ""}
                   required={field.required}
                   disabled={submitting}
-                  onChange={(event) => handleChange(field.key, field.numeric ? Number(event.target.value) : event.target.value)}
+                  onChange={(event) =>
+                    handleChange(
+                      field.key,
+                      field.numeric
+                        ? Number(event.target.value)
+                        : event.target.value,
+                    )
+                  }
                 >
                   <option value="">Select</option>
                   {field.options?.map((option) => (
@@ -74,14 +86,23 @@ export default function EntityDrawer({
                   disabled={submitting}
                   value={formData[field.key] ?? ""}
                   onChange={(event) =>
-                    handleChange(field.key, field.type === "number" ? Number(event.target.value) : event.target.value)
+                    handleChange(
+                      field.key,
+                      field.type === "number"
+                        ? Number(event.target.value)
+                        : event.target.value,
+                    )
                   }
                 />
               )}
             </div>
           ))}
           {error ? <div className="error-line">{error}</div> : null}
-          <button className="btn btn-primary" type="submit" disabled={submitting}>
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={submitting}
+          >
             {submitting ? <Spinner size="sm" /> : "Save"}
           </button>
         </form>

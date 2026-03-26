@@ -75,14 +75,44 @@ export default function Dashboard() {
       </div>
       <div className="grid-5">
         {cards.map((card) => (
-          <StatCard key={card.key} label={card.label} count={counts[card.key]} icon={card.icon} onClick={() => navigate(card.path)} />
+          <StatCard
+            key={card.key}
+            label={card.label}
+            count={counts[card.key]}
+            icon={card.icon}
+            onClick={() => navigate(card.path)}
+          />
         ))}
       </div>
       <div className="quick-actions">
-        <button className="btn btn-primary" type="button" onClick={() => navigate("/master")}>Master Data</button>
-        <button className="btn btn-primary" type="button" onClick={() => navigate("/assignments")}>Assignments</button>
-        <button className="btn btn-primary" type="button" onClick={() => navigate("/builder")}>Build Timetable</button>
-        <button className="btn btn-primary" type="button" onClick={() => navigate("/views")}>View Matrices</button>
+        <button
+          className="btn btn-primary"
+          type="button"
+          onClick={() => navigate("/master")}
+        >
+          Master Data
+        </button>
+        <button
+          className="btn btn-primary"
+          type="button"
+          onClick={() => navigate("/assignments")}
+        >
+          Assignments
+        </button>
+        <button
+          className="btn btn-primary"
+          type="button"
+          onClick={() => navigate("/builder")}
+        >
+          Build Timetable
+        </button>
+        <button
+          className="btn btn-primary"
+          type="button"
+          onClick={() => navigate("/views")}
+        >
+          View Matrices
+        </button>
       </div>
     </div>
   );
