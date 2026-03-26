@@ -3,7 +3,12 @@ const SLOTS = ["1", "2", "3", "4", "5", "6"];
 
 import { Fragment } from "react";
 
-export default function TimetableGrid({ matrix, onCellClick, readOnly, loading }) {
+export default function TimetableGrid({
+  matrix,
+  onCellClick,
+  readOnly,
+  loading,
+}) {
   if (loading) {
     return <div className="panel" style={{ minHeight: 220 }} />;
   }
@@ -41,10 +46,14 @@ export default function TimetableGrid({ matrix, onCellClick, readOnly, loading }
             }
 
             if (cell.type === "LAB") {
-              const groupEntries = Object.entries(cell.groups || {}).sort(([a], [b]) => a.localeCompare(b));
+              const groupEntries = Object.entries(cell.groups || {}).sort(
+                ([a], [b]) => a.localeCompare(b),
+              );
               const groupValues = groupEntries.map(([, value]) => value);
               const groupLabels = groupEntries.map(([groupName]) => groupName);
-              const subjectSummary = [...new Set(groupValues.map((group) => group.subjectCode))].join(" / ");
+              const subjectSummary = [
+                ...new Set(groupValues.map((group) => group.subjectCode)),
+              ].join(" / ");
               return (
                 <button
                   key={key}
@@ -54,8 +63,14 @@ export default function TimetableGrid({ matrix, onCellClick, readOnly, loading }
                   onClick={() => !readOnly && onCellClick(day, slot, cell)}
                 >
                   <div className="cell-title">{subjectSummary || "LAB"}</div>
-                  <div className="cell-sub">Groups | {groupLabels.join(" ")}</div>
-                  <div className="cell-sub">{groupEntries.map(([groupName, group]) => `${groupName}:${group.lab}`).join(" | ")}</div>
+                  <div className="cell-sub">
+                    Groups | {groupLabels.join(" ")}
+                  </div>
+                  <div className="cell-sub">
+                    {groupEntries
+                      .map(([groupName, group]) => `${groupName}:${group.lab}`)
+                      .join(" | ")}
+                  </div>
                 </button>
               );
             }

@@ -56,7 +56,9 @@ export default function EntryForm({
   allTeachers,
 }) {
   const navigate = useNavigate();
-  const [entryType, setEntryType] = useState(existingEntry?.type === "LAB" ? "LAB" : "THEORY");
+  const [entryType, setEntryType] = useState(
+    existingEntry?.type === "LAB" ? "LAB" : "THEORY",
+  );
   const [day, setDay] = useState(initialDay || 1);
   const [slot, setSlot] = useState(initialSlot || 1);
   const [subjectId, setSubjectId] = useState("");
@@ -82,8 +84,12 @@ export default function EntryForm({
     setSlot(Number(initialSlot) || 1);
 
     if (existingEntry?.type === "THEORY") {
-      setSubjectId(existingEntry.subjectId ? String(existingEntry.subjectId) : "");
-      setTeacherId(existingEntry.teacherId ? String(existingEntry.teacherId) : "");
+      setSubjectId(
+        existingEntry.subjectId ? String(existingEntry.subjectId) : "",
+      );
+      setTeacherId(
+        existingEntry.teacherId ? String(existingEntry.teacherId) : "",
+      );
       setRoomId(existingEntry.roomId ? String(existingEntry.roomId) : "");
       setLabGroups([
         { groupName: "A1", subjectId: "", labId: "", teacherId: "" },
@@ -97,8 +103,12 @@ export default function EntryForm({
       setLabGroups(
         LAB_GROUPS.map((groupName) => ({
           groupName,
-          subjectId: existingEntry.groups?.[groupName]?.subjectId ? String(existingEntry.groups[groupName].subjectId) : "",
-          labId: existingEntry.groups?.[groupName]?.labId ? String(existingEntry.groups[groupName].labId) : "",
+          subjectId: existingEntry.groups?.[groupName]?.subjectId
+            ? String(existingEntry.groups[groupName].subjectId)
+            : "",
+          labId: existingEntry.groups?.[groupName]?.labId
+            ? String(existingEntry.groups[groupName].labId)
+            : "",
           teacherId: existingEntry.groups?.[groupName]?.teacherId
             ? String(existingEntry.groups[groupName].teacherId)
             : "",
@@ -161,29 +171,42 @@ export default function EntryForm({
   }, [allTeachers]);
 
   const subjectsForType = useMemo(
-    () => classSubjects.filter((item) => item.subject.type === entryType).map((item) => item.subject),
+    () =>
+      classSubjects
+        .filter((item) => item.subject.type === entryType)
+        .map((item) => item.subject),
     [classSubjects, entryType],
   );
 
   const filteredTeachers = useMemo(() => {
     if (!subjectId) return [];
-    return allTeachers.filter((teacher) => (teacherMap[teacher.id] || []).includes(Number(subjectId)));
+    return allTeachers.filter((teacher) =>
+      (teacherMap[teacher.id] || []).includes(Number(subjectId)),
+    );
   }, [subjectId, allTeachers, teacherMap]);
 
   const labSubjects = useMemo(
-    () => classSubjects.filter((item) => item.subject.type === "LAB").map((item) => item.subject),
+    () =>
+      classSubjects
+        .filter((item) => item.subject.type === "LAB")
+        .map((item) => item.subject),
     [classSubjects],
   );
 
   const getTeachersForSubject = (groupSubjectId) => {
     if (!groupSubjectId) return [];
-    return allTeachers.filter((teacher) => (teacherMap[teacher.id] || []).includes(Number(groupSubjectId)));
+    return allTeachers.filter((teacher) =>
+      (teacherMap[teacher.id] || []).includes(Number(groupSubjectId)),
+    );
   };
 
   const completeLabGroups = useMemo(
     () =>
       labGroups.filter(
-        (group) => Number(group.subjectId) > 0 && Number(group.labId) > 0 && Number(group.teacherId) > 0,
+        (group) =>
+          Number(group.subjectId) > 0 &&
+          Number(group.labId) > 0 &&
+          Number(group.teacherId) > 0,
       ),
     [labGroups],
   );
@@ -194,7 +217,10 @@ export default function EntryForm({
         const hasSubject = Number(group.subjectId) > 0;
         const hasLab = Number(group.labId) > 0;
         const hasTeacher = Number(group.teacherId) > 0;
-        return (hasSubject ? 1 : 0) + (hasLab ? 1 : 0) + (hasTeacher ? 1 : 0) > 0 && !(hasSubject && hasLab && hasTeacher);
+        return (
+          (hasSubject ? 1 : 0) + (hasLab ? 1 : 0) + (hasTeacher ? 1 : 0) > 0 &&
+          !(hasSubject && hasLab && hasTeacher)
+        );
       }),
     [labGroups],
   );
@@ -206,10 +232,15 @@ export default function EntryForm({
     completeLabGroups.length >= 1 &&
     !hasPartialLabGroup;
 
-  const canSubmitTheory = entryType === "THEORY" && day && slot && subjectId && teacherId && roomId;
+  const canSubmitTheory =
+    entryType === "THEORY" && day && slot && subjectId && teacherId && roomId;
 
   const handleGroupChange = (groupName, key, value) => {
-    setLabGroups((prev) => prev.map((group) => (group.groupName === groupName ? { ...group, [key]: value } : group)));
+    setLabGroups((prev) =>
+      prev.map((group) =>
+        group.groupName === groupName ? { ...group, [key]: value } : group,
+      ),
+    );
   };
 
   const handleSubmit = async (event) => {
@@ -295,7 +326,12 @@ export default function EntryForm({
     <div className="panel" style={{ marginTop: 16 }}>
       <div className="page-header">
         <h3>{editableEntryId ? "Edit Entry" : "Create Entry"}</h3>
-        <button className="btn btn-ghost" type="button" onClick={onClose} disabled={submitting}>
+        <button
+          className="btn btn-ghost"
+          type="button"
+          onClick={onClose}
+          disabled={submitting}
+        >
           Close
         </button>
       </div>
@@ -436,7 +472,9 @@ export default function EntryForm({
           </>
         ) : (
           LAB_GROUPS.map((groupName) => {
-            const group = labGroups.find((item) => item.groupName === groupName);
+            const group = labGroups.find(
+              (item) => item.groupName === groupName,
+            );
             return (
               <div
                 className={`panel ${issueFields.includes("lab") || issueFields.includes("labTeacher") || issueFields.includes("labSubject") ? "field-error" : ""}`}
@@ -447,7 +485,9 @@ export default function EntryForm({
                 <div className="form-group">
                   <label>Subject</label>
                   <select
-                    className={issueFields.includes("labSubject") ? "input-error" : ""}
+                    className={
+                      issueFields.includes("labSubject") ? "input-error" : ""
+                    }
                     value={group?.subjectId || ""}
                     onChange={(e) => {
                       clearIssueIndicators();
@@ -487,7 +527,9 @@ export default function EntryForm({
                 <div className="form-group">
                   <label>Teacher</label>
                   <select
-                    className={issueFields.includes("labTeacher") ? "input-error" : ""}
+                    className={
+                      issueFields.includes("labTeacher") ? "input-error" : ""
+                    }
                     value={group?.teacherId || ""}
                     onChange={(e) => {
                       clearIssueIndicators();
@@ -510,15 +552,32 @@ export default function EntryForm({
 
         {error ? <div className="error-line">{error}</div> : null}
         {entryType === "LAB" && hasPartialLabGroup ? (
-          <div className="error-line">For each selected group, choose Subject, Lab, and Teacher.</div>
+          <div className="error-line">
+            For each selected group, choose Subject, Lab, and Teacher.
+          </div>
         ) : null}
 
         <div className="form-row">
-          <button className="btn btn-primary" type="submit" disabled={submitting || !(canSubmitTheory || canSubmitLab)}>
-            {submitting ? <Spinner size="sm" /> : editableEntryId ? "Update Entry" : "Create Entry"}
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={submitting || !(canSubmitTheory || canSubmitLab)}
+          >
+            {submitting ? (
+              <Spinner size="sm" />
+            ) : editableEntryId ? (
+              "Update Entry"
+            ) : (
+              "Create Entry"
+            )}
           </button>
           {editableEntryId ? (
-            <button className="btn btn-danger" type="button" onClick={handleDelete} disabled={submitting}>
+            <button
+              className="btn btn-danger"
+              type="button"
+              onClick={handleDelete}
+              disabled={submitting}
+            >
               Delete Entry
             </button>
           ) : null}

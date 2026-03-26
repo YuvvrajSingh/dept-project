@@ -14,12 +14,12 @@ export function createEmptyMatrix() {
     matrix[String(day)] = {
       label: DAY_LABELS[day],
       slots: {
-        "1": null,
-        "2": null,
-        "3": null,
-        "4": null,
-        "5": null,
-        "6": null,
+        1: null,
+        2: null,
+        3: null,
+        4: null,
+        5: null,
+        6: null,
       },
     };
   }
@@ -56,8 +56,10 @@ export function buildTeacherMatrix(schedule) {
     const group = labByEntry.get(entryId);
     group.groups[lab.groupName] = {
       subjectId: lab.subjectId,
-      subjectCode: lab.subject?.code || lab.timetableEntry.subject?.code || "LAB",
-      subjectName: lab.subject?.name || lab.timetableEntry.subject?.name || "Lab Subject",
+      subjectCode:
+        lab.subject?.code || lab.timetableEntry.subject?.code || "LAB",
+      subjectName:
+        lab.subject?.name || lab.timetableEntry.subject?.name || "Lab Subject",
       lab: lab.lab.name,
       teacher: schedule.teacher?.abbreviation || "",
     };

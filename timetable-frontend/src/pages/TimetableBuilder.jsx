@@ -30,18 +30,23 @@ export default function TimetableBuilder({ showToast }) {
 
   const [entryOpen, setEntryOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [selectedCell, setSelectedCell] = useState({ day: null, slot: null, cellData: null });
+  const [selectedCell, setSelectedCell] = useState({
+    day: null,
+    slot: null,
+    cellData: null,
+  });
 
   useEffect(() => {
     async function setup() {
       setLoadingSetup(true);
       try {
-        const [classesData, roomsData, labsData, teachersData] = await Promise.all([
-          getClasses(),
-          getRooms(),
-          getLabs(),
-          getTeachers(),
-        ]);
+        const [classesData, roomsData, labsData, teachersData] =
+          await Promise.all([
+            getClasses(),
+            getRooms(),
+            getLabs(),
+            getTeachers(),
+          ]);
         setClasses(classesData);
         setRooms(roomsData);
         setLabs(labsData);
@@ -57,14 +62,20 @@ export default function TimetableBuilder({ showToast }) {
   }, [showToast]);
 
   const filteredClasses = useMemo(
-    () => classes.filter((item) => item.branch?.name === branch && item.year === Number(year)),
+    () =>
+      classes.filter(
+        (item) => item.branch?.name === branch && item.year === Number(year),
+      ),
     [classes, branch, year],
   );
 
   const loadTimetable = async (id) => {
     setLoadingGrid(true);
     try {
-      const [timetable, subjects] = await Promise.all([getClassTimetable(id), getClassSubjects(id)]);
+      const [timetable, subjects] = await Promise.all([
+        getClassTimetable(id),
+        getClassSubjects(id),
+      ]);
       setMatrix(timetable.timetable);
       setClassSubjects(subjects);
       setPreviewOpen(false);
@@ -82,12 +93,17 @@ export default function TimetableBuilder({ showToast }) {
 
   const selectedLabGroups =
     selectedCell.cellData?.type === "LAB"
-      ? Object.entries(selectedCell.cellData.groups || {}).sort(([a], [b]) => a.localeCompare(b))
+      ? Object.entries(selectedCell.cellData.groups || {}).sort(([a], [b]) =>
+          a.localeCompare(b),
+        )
       : [];
 
   const labGroupLabels = selectedLabGroups.map(([groupName]) => groupName);
 
-  const formatLabByGroup = (pick) => selectedLabGroups.map(([groupName, group]) => `${groupName}:${pick(group)}`).join(" | ");
+  const formatLabByGroup = (pick) =>
+    selectedLabGroups
+      .map(([groupName, group]) => `${groupName}:${pick(group)}`)
+      .join(" | ");
 
   return (
     <div>
@@ -98,7 +114,10 @@ export default function TimetableBuilder({ showToast }) {
       <div className="top-filter panel">
         <div className="form-group">
           <label>Branch</label>
-          <select value={branch} onChange={(event) => setBranch(event.target.value)}>
+          <select
+            value={branch}
+            onChange={(event) => setBranch(event.target.value)}
+          >
             {BRANCHES.map((item) => (
               <option key={item} value={item}>
                 {item}
@@ -109,7 +128,10 @@ export default function TimetableBuilder({ showToast }) {
 
         <div className="form-group">
           <label>Year</label>
-          <select value={year} onChange={(event) => setYear(Number(event.target.value))}>
+          <select
+            value={year}
+            onChange={(event) => setYear(Number(event.target.value))}
+          >
             {YEAR_OPTIONS.map((item) => (
               <option key={item} value={item}>
                 {getYearLabel(item)}
@@ -120,7 +142,10 @@ export default function TimetableBuilder({ showToast }) {
 
         <div className="form-group">
           <label>Class</label>
-          <select value={classSectionId} onChange={(event) => setClassSectionId(event.target.value)}>
+          <select
+            value={classSectionId}
+            onChange={(event) => setClassSectionId(event.target.value)}
+          >
             <option value="">Select class</option>
             {filteredClasses.map((item) => (
               <option key={item.id} value={item.id}>
