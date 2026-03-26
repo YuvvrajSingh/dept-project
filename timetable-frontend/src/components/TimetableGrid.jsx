@@ -40,15 +40,11 @@ export default function TimetableGrid({ matrix, onCellClick, readOnly, loading }
               );
             }
 
-            if (cell.type === "LAB_CONTINUATION") {
-              return (
-                <div className="cell-continuation" key={key}>
-                  ↑ Lab continued
-                </div>
-              );
-            }
-
             if (cell.type === "LAB") {
+              const groupEntries = Object.entries(cell.groups || {}).sort(([a], [b]) => a.localeCompare(b));
+              const groupValues = groupEntries.map(([, value]) => value);
+              const groupLabels = groupEntries.map(([groupName]) => groupName);
+              const subjectSummary = [...new Set(groupValues.map((group) => group.subjectCode))].join(" / ");
               return (
                 <button
                   key={key}
@@ -57,9 +53,9 @@ export default function TimetableGrid({ matrix, onCellClick, readOnly, loading }
                   disabled={readOnly}
                   onClick={() => !readOnly && onCellClick(day, slot, cell)}
                 >
-                  <div className="cell-title">{cell.subjectCode}</div>
-                  <div className="cell-sub">Lab | A1 A2 A3</div>
-                  <div className="cell-sub">{Object.values(cell.groups || {}).map((group) => group.lab).join(" | ")}</div>
+                  <div className="cell-title">{subjectSummary || "LAB"}</div>
+                  <div className="cell-sub">Groups | {groupLabels.join(" ")}</div>
+                  <div className="cell-sub">{groupEntries.map(([groupName, group]) => `${groupName}:${group.lab}`).join(" | ")}</div>
                 </button>
               );
             }

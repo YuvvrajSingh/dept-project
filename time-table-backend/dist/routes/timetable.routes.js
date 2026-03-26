@@ -24,13 +24,18 @@ const labSchema = zod_1.z.object({
     body: zod_1.z.object({
         classSectionId: zod_1.z.coerce.number().int().positive(),
         day: zod_1.z.coerce.number().int().min(1).max(6),
+        slotStart: zod_1.z.coerce.number().int().min(1).max(6),
+        slotEnd: zod_1.z.coerce.number().int().min(1).max(6).optional(),
         entryType: zod_1.z.literal("LAB"),
-        subjectId: zod_1.z.coerce.number().int().positive(),
-        labGroups: zod_1.z.array(zod_1.z.object({
+        labGroups: zod_1.z
+            .array(zod_1.z.object({
             groupName: zod_1.z.enum(["A1", "A2", "A3"]),
+            subjectId: zod_1.z.coerce.number().int().positive(),
             labId: zod_1.z.coerce.number().int().positive(),
             teacherId: zod_1.z.coerce.number().int().positive(),
-        })),
+        }))
+            .min(1)
+            .max(3),
     }),
 });
 const createEntrySchema = zod_1.z.union([theorySchema, labSchema]);

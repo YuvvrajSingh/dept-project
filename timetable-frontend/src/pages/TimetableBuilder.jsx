@@ -80,6 +80,15 @@ export default function TimetableBuilder({ showToast }) {
     return <Spinner />;
   }
 
+  const selectedLabGroups =
+    selectedCell.cellData?.type === "LAB"
+      ? Object.entries(selectedCell.cellData.groups || {}).sort(([a], [b]) => a.localeCompare(b))
+      : [];
+
+  const labGroupLabels = selectedLabGroups.map(([groupName]) => groupName);
+
+  const formatLabByGroup = (pick) => selectedLabGroups.map(([groupName, group]) => `${groupName}:${pick(group)}`).join(" | ");
+
   return (
     <div>
       <div className="page-header">
@@ -169,28 +178,32 @@ export default function TimetableBuilder({ showToast }) {
             <div className="preview-k">Day</div>
             <div className="preview-v">{selectedCell.day}</div>
             <div className="preview-k">Slot</div>
-            <div className="preview-v">
-              {selectedCell.cellData.type === "LAB" ? "5-6" : selectedCell.slot}
-            </div>
+            <div className="preview-v">{selectedCell.slot}</div>
             <div className="preview-k">Type</div>
             <div className="preview-v">{selectedCell.cellData.type}</div>
+            {selectedCell.cellData.type === "LAB" ? (
+              <>
+                <div className="preview-k">Sections</div>
+                <div className="preview-v">{labGroupLabels.join(", ")}</div>
+              </>
+            ) : null}
             <div className="preview-k">Subject</div>
-            <div className="preview-v">{selectedCell.cellData.subjectCode}</div>
+            <div className="preview-v">
+              {selectedCell.cellData.type === "THEORY"
+                ? selectedCell.cellData.subjectCode
+                : formatLabByGroup((item) => item.subjectCode)}
+            </div>
             <div className="preview-k">Teacher</div>
             <div className="preview-v">
               {selectedCell.cellData.type === "THEORY"
                 ? selectedCell.cellData.teacherAbbr || "-"
-                : Object.values(selectedCell.cellData.groups || {})
-                    .map((item) => item.teacher)
-                    .join(", ")}
+                : formatLabByGroup((item) => item.teacher)}
             </div>
             <div className="preview-k">Room/Lab</div>
             <div className="preview-v">
               {selectedCell.cellData.type === "THEORY"
                 ? selectedCell.cellData.roomName || "-"
-                : Object.values(selectedCell.cellData.groups || {})
-                    .map((item) => item.lab)
-                    .join(", ")}
+                : formatLabByGroup((item) => item.lab)}
             </div>
           </div>
 

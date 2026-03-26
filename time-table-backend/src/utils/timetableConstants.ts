@@ -16,6 +16,4 @@ export const DAY_LABELS = {
   6: "Saturday",
 } as const;
 
-export const LAB_SLOT_START = 5;
-export const LAB_SLOT_END = 6;
 export const LAB_GROUPS = ["A1", "A2", "A3"] as const;

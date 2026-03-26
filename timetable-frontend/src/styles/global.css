@@ -402,17 +402,7 @@ tr:hover td {
   border: 1px solid var(--lab-border);
   padding: 8px;
   cursor: pointer;
-  grid-row: span 2;
   overflow: hidden;
-}
-
-.cell-continuation {
-  background: var(--surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text3);
-  font-size: 12px;
 }
 
 .cell-title {

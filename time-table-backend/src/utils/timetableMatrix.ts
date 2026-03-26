@@ -2,12 +2,13 @@ import type { LabGroupEntry, Lab, Subject, Teacher, Room, TimetableEntry } from 
 import { DAY_LABELS } from "./timetableConstants";
 
 type LabGroupWithRelations = LabGroupEntry & {
+  subject: Subject | null;
   lab: Lab;
   teacher: Teacher;
 };
 
 type TimetableEntryWithRelations = TimetableEntry & {
-  subject: Subject;
+  subject: Subject | null;
   teacher: Teacher | null;
   room: Room | null;
   labGroups: LabGroupWithRelations[];
@@ -28,19 +29,10 @@ type TheoryCell = {
 type LabCell = {
   type: "LAB";
   entryId: number;
-  subjectId: number;
-  subjectCode: string;
-  subjectName: string;
-  spansSlots: [5, 6];
-  groups: Record<string, { labId: number; teacherId: number; lab: string; teacher: string }>;
+  groups: Record<string, { subjectId: number | null; subjectCode: string; subjectName: string; labId: number; teacherId: number; lab: string; teacher: string }>;
 };
 
-type LabContinuationCell = {
-  type: "LAB_CONTINUATION";
-  mergedWith: 5;
-};
-
-type MatrixCell = TheoryCell | LabCell | LabContinuationCell | null;
+type MatrixCell = TheoryCell | LabCell | null;
 
 type DayMatrix = {
   label: string;
@@ -70,10 +62,14 @@ export function buildMatrix(entries: TimetableEntryWithRelations[]): TimetableMa
     const dayKey = String(entry.day);
 
     if (entry.entryType === "THEORY") {
+      if (!entry.subject) {
+        continue;
+      }
+
       matrix[dayKey].slots[String(entry.slotStart)] = {
         type: "THEORY",
         entryId: entry.id,
-        subjectId: entry.subjectId,
+        subjectId: entry.subjectId ?? entry.subject.id,
         teacherId: entry.teacherId,
         roomId: entry.roomId,
         subjectCode: entry.subject.code,
@@ -84,35 +80,27 @@ export function buildMatrix(entries: TimetableEntryWithRelations[]): TimetableMa
       continue;
     }
 
-    if (entry.slotStart === 5) {
-      const groups = entry.labGroups.reduce<Record<string, { labId: number; teacherId: number; lab: string; teacher: string }>>(
-        (acc, group) => {
-          acc[group.groupName] = {
-            labId: group.labId,
-            teacherId: group.teacherId,
-            lab: group.lab.name,
-            teacher: group.teacher.abbreviation,
-          };
-          return acc;
-        },
-        {},
-      );
+    const groups = entry.labGroups.reduce<Record<string, { subjectId: number | null; subjectCode: string; subjectName: string; labId: number; teacherId: number; lab: string; teacher: string }>>(
+      (acc, group) => {
+        acc[group.groupName] = {
+          subjectId: group.subjectId,
+          subjectCode: group.subject?.code ?? entry.subject?.code ?? "N/A",
+          subjectName: group.subject?.name ?? entry.subject?.name ?? "Unknown Subject",
+          labId: group.labId,
+          teacherId: group.teacherId,
+          lab: group.lab.name,
+          teacher: group.teacher.abbreviation,
+        };
+        return acc;
+      },
+      {},
+    );
 
-      matrix[dayKey].slots["5"] = {
-        type: "LAB",
-        entryId: entry.id,
-        subjectId: entry.subjectId,
-        subjectCode: entry.subject.code,
-        subjectName: entry.subject.name,
-        spansSlots: [5, 6],
-        groups,
-      };
-
-      matrix[dayKey].slots["6"] = {
-        type: "LAB_CONTINUATION",
-        mergedWith: 5,
-      };
-    }
+    matrix[dayKey].slots[String(entry.slotStart)] = {
+      type: "LAB",
+      entryId: entry.id,
+      groups,
+    };
   }
 
   return matrix;

@@ -20,10 +20,13 @@ function buildMatrix(entries) {
     for (const entry of entries) {
         const dayKey = String(entry.day);
         if (entry.entryType === "THEORY") {
+            if (!entry.subject) {
+                continue;
+            }
             matrix[dayKey].slots[String(entry.slotStart)] = {
                 type: "THEORY",
                 entryId: entry.id,
-                subjectId: entry.subjectId,
+                subjectId: entry.subjectId ?? entry.subject.id,
                 teacherId: entry.teacherId,
                 roomId: entry.roomId,
                 subjectCode: entry.subject.code,
@@ -33,30 +36,23 @@ function buildMatrix(entries) {
             };
             continue;
         }
-        if (entry.slotStart === 5) {
-            const groups = entry.labGroups.reduce((acc, group) => {
-                acc[group.groupName] = {
-                    labId: group.labId,
-                    teacherId: group.teacherId,
-                    lab: group.lab.name,
-                    teacher: group.teacher.abbreviation,
-                };
-                return acc;
-            }, {});
-            matrix[dayKey].slots["5"] = {
-                type: "LAB",
-                entryId: entry.id,
-                subjectId: entry.subjectId,
-                subjectCode: entry.subject.code,
-                subjectName: entry.subject.name,
-                spansSlots: [5, 6],
-                groups,
+        const groups = entry.labGroups.reduce((acc, group) => {
+            acc[group.groupName] = {
+                subjectId: group.subjectId,
+                subjectCode: group.subject?.code ?? entry.subject?.code ?? "N/A",
+                subjectName: group.subject?.name ?? entry.subject?.name ?? "Unknown Subject",
+                labId: group.labId,
+                teacherId: group.teacherId,
+                lab: group.lab.name,
+                teacher: group.teacher.abbreviation,
             };
-            matrix[dayKey].slots["6"] = {
-                type: "LAB_CONTINUATION",
-                mergedWith: 5,
-            };
-        }
+            return acc;
+        }, {});
+        matrix[dayKey].slots[String(entry.slotStart)] = {
+            type: "LAB",
+            entryId: entry.id,
+            groups,
+        };
     }
     return matrix;
 }

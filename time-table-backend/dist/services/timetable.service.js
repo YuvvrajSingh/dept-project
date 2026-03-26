@@ -61,15 +61,29 @@ const validateTheoryShape = (data) => {
 };
 const validateLabShape = (data) => {
     assertDay(data.day);
-    if (data.labGroups.length !== 3) {
-        throw new AppError_1.AppError("LAB entries must include exactly 3 groups: A1, A2, A3", 400, "VALIDATION_ERROR");
+    if (!Number.isInteger(data.slotStart) || data.slotStart < 1 || data.slotStart > 6) {
+        throw new AppError_1.AppError("slotStart must be between 1 and 6", 400, "VALIDATION_ERROR");
+    }
+    const slotEnd = data.slotEnd ?? data.slotStart;
+    if (slotEnd !== data.slotStart) {
+        throw new AppError_1.AppError("For LAB entries, slotEnd must equal slotStart", 400, "VALIDATION_ERROR");
+    }
+    if (data.labGroups.length < 1 || data.labGroups.length > 3) {
+        throw new AppError_1.AppError("LAB entries must include 1 to 3 groups from A1, A2, A3", 400, "VALIDATION_ERROR");
     }
     const groupNames = data.labGroups.map((group) => group.groupName);
     const uniqueNames = new Set(groupNames);
     const required = new Set(timetableConstants_1.LAB_GROUPS);
-    if (uniqueNames.size !== 3 || groupNames.some((name) => !required.has(name))) {
-        throw new AppError_1.AppError("LAB group names must be exactly A1, A2, A3", 400, "VALIDATION_ERROR");
+    if (uniqueNames.size !== groupNames.length || groupNames.some((name) => !required.has(name))) {
+        throw new AppError_1.AppError("LAB group names must be unique and chosen from A1, A2, A3", 400, "VALIDATION_ERROR");
     }
+};
+const formatClassLabel = (classSection) => {
+    if (!classSection) {
+        return "Unknown class";
+    }
+    const branchName = classSection.branch?.name ?? "Unknown";
+    return `${branchName} Year ${classSection.year}`;
 };
 const createTheory = async (db, data) => {
     validateTheoryShape(data);
@@ -95,10 +109,17 @@ const createTheory = async (db, data) => {
             day: data.day,
             slotStart: data.slotStart,
         },
-        include: { teacher: true },
+        include: {
+            teacher: true,
+            classSection: {
+                include: {
+                    branch: true,
+                },
+            },
+        },
     });
     if (teacherConflict?.teacher) {
-        throw new AppError_1.AppError(`Teacher ${teacherConflict.teacher.abbreviation} is already scheduled on ${timetableConstants_1.DAY_LABELS[data.day]} slot ${data.slotStart}`, 409, "CONFLICT");
+        throw new AppError_1.AppError(`Teacher ${teacherConflict.teacher.abbreviation} is already scheduled on ${timetableConstants_1.DAY_LABELS[data.day]} slot ${data.slotStart} for ${formatClassLabel(teacherConflict.classSection)}`, 409, "CONFLICT");
     }
     const roomConflict = await db.timetableEntry.findFirst({
         where: {
@@ -131,9 +152,9 @@ const createTheory = async (db, data) => {
 };
 const createLab = async (db, data) => {
     validateLabShape(data);
-    await assertClassAndSubjectPrereq(db, data.classSectionId, data.subjectId);
     for (const group of data.labGroups) {
-        await assertTeacherSubjectPrereq(db, group.teacherId, data.subjectId);
+        await assertClassAndSubjectPrereq(db, data.classSectionId, group.subjectId);
+        await assertTeacherSubjectPrereq(db, group.teacherId, group.subjectId);
         const lab = await db.lab.findUnique({ where: { id: group.labId } });
         if (!lab) {
             throw new AppError_1.AppError(`Lab ${group.labId} not found`, 404, "NOT_FOUND");
@@ -143,72 +164,100 @@ const createLab = async (db, data) => {
         where: {
             classSectionId: data.classSectionId,
             day: data.day,
-            OR: [{ slotStart: timetableConstants_1.LAB_SLOT_START }, { slotStart: timetableConstants_1.LAB_SLOT_END }],
+            slotStart: data.slotStart,
         },
     });
     if (classConflict) {
-        throw new AppError_1.AppError("Class section already has an entry in lab slots", 409, "CONFLICT");
+        throw new AppError_1.AppError("Class section already has an entry at this slot", 409, "CONFLICT");
     }
-    for (const slot of [timetableConstants_1.LAB_SLOT_START, timetableConstants_1.LAB_SLOT_END]) {
-        for (const group of data.labGroups) {
-            const teacher = await db.teacher.findUnique({ where: { id: group.teacherId } });
-            const lab = await db.lab.findUnique({ where: { id: group.labId } });
-            const theoryTeacherConflict = await db.timetableEntry.findFirst({
-                where: {
-                    teacherId: group.teacherId,
+    for (const group of data.labGroups) {
+        const teacher = await db.teacher.findUnique({ where: { id: group.teacherId } });
+        const lab = await db.lab.findUnique({ where: { id: group.labId } });
+        const theoryTeacherConflict = await db.timetableEntry.findFirst({
+            where: {
+                teacherId: group.teacherId,
+                day: data.day,
+                slotStart: data.slotStart,
+            },
+            include: {
+                classSection: {
+                    include: {
+                        branch: true,
+                    },
+                },
+            },
+        });
+        if (theoryTeacherConflict && teacher) {
+            throw new AppError_1.AppError(`Teacher ${teacher.abbreviation} is already scheduled on ${timetableConstants_1.DAY_LABELS[data.day]} slot ${data.slotStart} for ${formatClassLabel(theoryTeacherConflict.classSection)}`, 409, "CONFLICT");
+        }
+        const labTeacherConflict = await db.labGroupEntry.findFirst({
+            where: {
+                teacherId: group.teacherId,
+                timetableEntry: {
                     day: data.day,
-                    slotStart: slot,
+                    slotStart: data.slotStart,
                 },
-            });
-            if (theoryTeacherConflict && teacher) {
-                throw new AppError_1.AppError(`Teacher ${teacher.abbreviation} is already scheduled on ${timetableConstants_1.DAY_LABELS[data.day]} slot ${slot}`, 409, "CONFLICT");
-            }
-            const labTeacherConflict = await db.labGroupEntry.findFirst({
-                where: {
-                    teacherId: group.teacherId,
-                    timetableEntry: {
-                        day: data.day,
-                        OR: [{ slotStart: timetableConstants_1.LAB_SLOT_START }, { slotStart: timetableConstants_1.LAB_SLOT_END }],
+            },
+            include: {
+                timetableEntry: {
+                    include: {
+                        classSection: {
+                            include: {
+                                branch: true,
+                            },
+                        },
                     },
                 },
-            });
-            if (labTeacherConflict && teacher) {
-                throw new AppError_1.AppError(`Teacher ${teacher.abbreviation} already has a lab on ${timetableConstants_1.DAY_LABELS[data.day]} slots 5-6`, 409, "CONFLICT");
-            }
-            const labConflict = await db.labGroupEntry.findFirst({
-                where: {
-                    labId: group.labId,
-                    timetableEntry: {
-                        day: data.day,
-                        OR: [{ slotStart: timetableConstants_1.LAB_SLOT_START }, { slotStart: timetableConstants_1.LAB_SLOT_END }],
+            },
+        });
+        if (labTeacherConflict && teacher) {
+            throw new AppError_1.AppError(`Teacher ${teacher.abbreviation} already has a lab on ${timetableConstants_1.DAY_LABELS[data.day]} slot ${data.slotStart} for ${formatClassLabel(labTeacherConflict.timetableEntry.classSection)}`, 409, "CONFLICT");
+        }
+        const labConflict = await db.labGroupEntry.findFirst({
+            where: {
+                labId: group.labId,
+                timetableEntry: {
+                    day: data.day,
+                    slotStart: data.slotStart,
+                },
+            },
+            include: {
+                timetableEntry: {
+                    include: {
+                        classSection: {
+                            include: {
+                                branch: true,
+                            },
+                        },
                     },
                 },
-            });
-            if (labConflict && lab) {
-                throw new AppError_1.AppError(`Lab ${lab.name} is already booked on ${timetableConstants_1.DAY_LABELS[data.day]} slots 5-6`, 409, "CONFLICT");
-            }
+            },
+        });
+        if (labConflict && lab) {
+            throw new AppError_1.AppError(`Lab ${lab.name} is already booked on ${timetableConstants_1.DAY_LABELS[data.day]} slot ${data.slotStart} for ${formatClassLabel(labConflict.timetableEntry.classSection)}`, 409, "CONFLICT");
         }
     }
     return db.timetableEntry.create({
         data: {
             classSectionId: data.classSectionId,
             day: data.day,
-            slotStart: timetableConstants_1.LAB_SLOT_START,
-            slotEnd: timetableConstants_1.LAB_SLOT_END,
+            slotStart: data.slotStart,
+            slotEnd: data.slotStart,
             entryType: client_1.EntryType.LAB,
-            subjectId: data.subjectId,
+            subjectId: null,
             labGroups: {
                 create: data.labGroups.map((group) => ({
                     groupName: group.groupName,
+                    subjectId: group.subjectId,
                     labId: group.labId,
                     teacherId: group.teacherId,
                 })),
             },
         },
         include: {
-            subject: true,
             labGroups: {
                 include: {
+                    subject: true,
                     lab: true,
                     teacher: true,
                 },
@@ -261,6 +310,7 @@ exports.timetableService = {
                 room: true,
                 labGroups: {
                     include: {
+                        subject: true,
                         lab: true,
                         teacher: true,
                     },
@@ -296,6 +346,7 @@ exports.timetableService = {
         const labEntries = await client_2.prisma.labGroupEntry.findMany({
             where: { teacherId },
             include: {
+                subject: true,
                 lab: true,
                 timetableEntry: {
                     include: {

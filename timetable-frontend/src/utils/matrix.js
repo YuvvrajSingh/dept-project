@@ -48,14 +48,16 @@ export function buildTeacherMatrix(schedule) {
     if (!labByEntry.has(entryId)) {
       labByEntry.set(entryId, {
         day: lab.timetableEntry.day,
-        subjectCode: lab.timetableEntry.subject.code,
-        subjectName: lab.timetableEntry.subject.name,
+        slotStart: lab.timetableEntry.slotStart,
         groups: {},
       });
     }
 
     const group = labByEntry.get(entryId);
     group.groups[lab.groupName] = {
+      subjectId: lab.subjectId,
+      subjectCode: lab.subject?.code || lab.timetableEntry.subject?.code || "LAB",
+      subjectName: lab.subject?.name || lab.timetableEntry.subject?.name || "Lab Subject",
       lab: lab.lab.name,
       teacher: schedule.teacher?.abbreviation || "",
     };
@@ -63,14 +65,11 @@ export function buildTeacherMatrix(schedule) {
 
   labByEntry.forEach((entry) => {
     const day = String(entry.day);
-    matrix[day].slots["5"] = {
+    const slot = String(entry.slotStart);
+    matrix[day].slots[slot] = {
       type: "LAB",
-      subjectCode: entry.subjectCode,
-      subjectName: entry.subjectName,
-      spansSlots: [5, 6],
       groups: entry.groups,
     };
-    matrix[day].slots["6"] = { type: "LAB_CONTINUATION", mergedWith: 5 };
   });
 
   return matrix;

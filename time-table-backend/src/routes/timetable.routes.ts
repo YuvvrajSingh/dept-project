@@ -26,15 +26,20 @@ const labSchema = z.object({
   body: z.object({
     classSectionId: z.coerce.number().int().positive(),
     day: z.coerce.number().int().min(1).max(6),
+    slotStart: z.coerce.number().int().min(1).max(6),
+    slotEnd: z.coerce.number().int().min(1).max(6).optional(),
     entryType: z.literal("LAB"),
-    subjectId: z.coerce.number().int().positive(),
-    labGroups: z.array(
-      z.object({
-        groupName: z.enum(["A1", "A2", "A3"]),
-        labId: z.coerce.number().int().positive(),
-        teacherId: z.coerce.number().int().positive(),
-      }),
-    ),
+    labGroups: z
+      .array(
+        z.object({
+          groupName: z.enum(["A1", "A2", "A3"]),
+          subjectId: z.coerce.number().int().positive(),
+          labId: z.coerce.number().int().positive(),
+          teacherId: z.coerce.number().int().positive(),
+        }),
+      )
+      .min(1)
+      .max(3),
   }),
 });
 

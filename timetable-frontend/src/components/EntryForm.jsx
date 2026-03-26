@@ -32,7 +32,7 @@ function mapIssueFields(status, entryType, message) {
 
   if (status === 422) {
     if (message.includes("Subject is not assigned")) {
-      return ["subject"];
+      return entryType === "THEORY" ? ["subject"] : ["labSubject"];
     }
 
     if (message.includes("Teacher is not assigned")) {
@@ -63,9 +63,9 @@ export default function EntryForm({
   const [teacherId, setTeacherId] = useState("");
   const [roomId, setRoomId] = useState("");
   const [labGroups, setLabGroups] = useState([
-    { groupName: "A1", labId: "", teacherId: "" },
-    { groupName: "A2", labId: "", teacherId: "" },
-    { groupName: "A3", labId: "", teacherId: "" },
+    { groupName: "A1", subjectId: "", labId: "", teacherId: "" },
+    { groupName: "A2", subjectId: "", labId: "", teacherId: "" },
+    { groupName: "A3", subjectId: "", labId: "", teacherId: "" },
   ]);
   const [teacherMap, setTeacherMap] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -86,17 +86,18 @@ export default function EntryForm({
       setTeacherId(existingEntry.teacherId ? String(existingEntry.teacherId) : "");
       setRoomId(existingEntry.roomId ? String(existingEntry.roomId) : "");
       setLabGroups([
-        { groupName: "A1", labId: "", teacherId: "" },
-        { groupName: "A2", labId: "", teacherId: "" },
-        { groupName: "A3", labId: "", teacherId: "" },
+        { groupName: "A1", subjectId: "", labId: "", teacherId: "" },
+        { groupName: "A2", subjectId: "", labId: "", teacherId: "" },
+        { groupName: "A3", subjectId: "", labId: "", teacherId: "" },
       ]);
     } else if (existingEntry?.type === "LAB") {
-      setSubjectId(existingEntry.subjectId ? String(existingEntry.subjectId) : "");
+      setSubjectId("");
       setTeacherId("");
       setRoomId("");
       setLabGroups(
         LAB_GROUPS.map((groupName) => ({
           groupName,
+          subjectId: existingEntry.groups?.[groupName]?.subjectId ? String(existingEntry.groups[groupName].subjectId) : "",
           labId: existingEntry.groups?.[groupName]?.labId ? String(existingEntry.groups[groupName].labId) : "",
           teacherId: existingEntry.groups?.[groupName]?.teacherId
             ? String(existingEntry.groups[groupName].teacherId)
@@ -108,9 +109,9 @@ export default function EntryForm({
       setTeacherId("");
       setRoomId("");
       setLabGroups([
-        { groupName: "A1", labId: "", teacherId: "" },
-        { groupName: "A2", labId: "", teacherId: "" },
-        { groupName: "A3", labId: "", teacherId: "" },
+        { groupName: "A1", subjectId: "", labId: "", teacherId: "" },
+        { groupName: "A2", subjectId: "", labId: "", teacherId: "" },
+        { groupName: "A3", subjectId: "", labId: "", teacherId: "" },
       ]);
     }
 
@@ -130,11 +131,6 @@ export default function EntryForm({
     let active = true;
 
     async function loadTeacherSubjects() {
-      if (!subjectId) {
-        setTeacherMap({});
-        return;
-      }
-
       try {
         const pairs = await Promise.all(
           allTeachers.map(async (teacher) => {
@@ -162,7 +158,7 @@ export default function EntryForm({
     return () => {
       active = false;
     };
-  }, [subjectId, allTeachers]);
+  }, [allTeachers]);
 
   const subjectsForType = useMemo(
     () => classSubjects.filter((item) => item.subject.type === entryType).map((item) => item.subject),
@@ -174,10 +170,41 @@ export default function EntryForm({
     return allTeachers.filter((teacher) => (teacherMap[teacher.id] || []).includes(Number(subjectId)));
   }, [subjectId, allTeachers, teacherMap]);
 
+  const labSubjects = useMemo(
+    () => classSubjects.filter((item) => item.subject.type === "LAB").map((item) => item.subject),
+    [classSubjects],
+  );
+
+  const getTeachersForSubject = (groupSubjectId) => {
+    if (!groupSubjectId) return [];
+    return allTeachers.filter((teacher) => (teacherMap[teacher.id] || []).includes(Number(groupSubjectId)));
+  };
+
+  const completeLabGroups = useMemo(
+    () =>
+      labGroups.filter(
+        (group) => Number(group.subjectId) > 0 && Number(group.labId) > 0 && Number(group.teacherId) > 0,
+      ),
+    [labGroups],
+  );
+
+  const hasPartialLabGroup = useMemo(
+    () =>
+      labGroups.some((group) => {
+        const hasSubject = Number(group.subjectId) > 0;
+        const hasLab = Number(group.labId) > 0;
+        const hasTeacher = Number(group.teacherId) > 0;
+        return (hasSubject ? 1 : 0) + (hasLab ? 1 : 0) + (hasTeacher ? 1 : 0) > 0 && !(hasSubject && hasLab && hasTeacher);
+      }),
+    [labGroups],
+  );
+
   const canSubmitLab =
     entryType === "LAB" &&
-    subjectId &&
-    labGroups.every((group) => Number(group.labId) > 0 && Number(group.teacherId) > 0);
+    day &&
+    slot &&
+    completeLabGroups.length >= 1 &&
+    !hasPartialLabGroup;
 
   const canSubmitTheory = entryType === "THEORY" && day && slot && subjectId && teacherId && roomId;
 
@@ -206,10 +233,11 @@ export default function EntryForm({
           : {
               classSectionId,
               day: Number(day),
+              slotStart: Number(slot),
               entryType: "LAB",
-              subjectId: Number(subjectId),
-              labGroups: labGroups.map((group) => ({
+              labGroups: completeLabGroups.map((group) => ({
                 groupName: group.groupName,
+                subjectId: Number(group.subjectId),
                 labId: Number(group.labId),
                 teacherId: Number(group.teacherId),
               })),
@@ -323,51 +351,46 @@ export default function EntryForm({
           </select>
         </div>
 
-        {entryType === "THEORY" ? (
-          <div className="form-group">
-            <label>Slot</label>
-            <select
-              className={issueFields.includes("slot") ? "input-error" : ""}
-              value={slot}
-              onChange={(e) => {
-                clearIssueIndicators();
-                setSlot(Number(e.target.value));
-              }}
-              disabled={submitting}
-            >
-              {SLOT_OPTIONS.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <div className="form-group">
-            <label>Slot</label>
-            <input value="Slots 5 & 6 (fixed)" disabled />
-          </div>
-        )}
-
         <div className="form-group">
-          <label>Subject</label>
+          <label>Slot</label>
           <select
-            className={issueFields.includes("subject") ? "input-error" : ""}
-            value={subjectId}
+            className={issueFields.includes("slot") ? "input-error" : ""}
+            value={slot}
             onChange={(e) => {
               clearIssueIndicators();
-              setSubjectId(e.target.value);
+              setSlot(Number(e.target.value));
             }}
             disabled={submitting}
           >
-            <option value="">Select subject</option>
-            {subjectsForType.map((subject) => (
-              <option key={subject.id} value={subject.id}>
-                {subject.code} - {subject.name}
+            {SLOT_OPTIONS.map((item) => (
+              <option key={item} value={item}>
+                {item}
               </option>
             ))}
           </select>
         </div>
+
+        {entryType === "THEORY" ? (
+          <div className="form-group">
+            <label>Subject</label>
+            <select
+              className={issueFields.includes("subject") ? "input-error" : ""}
+              value={subjectId}
+              onChange={(e) => {
+                clearIssueIndicators();
+                setSubjectId(e.target.value);
+              }}
+              disabled={submitting}
+            >
+              <option value="">Select subject</option>
+              {subjectsForType.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.code} - {subject.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
 
         {entryType === "THEORY" ? (
           <>
@@ -416,11 +439,32 @@ export default function EntryForm({
             const group = labGroups.find((item) => item.groupName === groupName);
             return (
               <div
-                className={`panel ${issueFields.includes("lab") || issueFields.includes("labTeacher") ? "field-error" : ""}`}
+                className={`panel ${issueFields.includes("lab") || issueFields.includes("labTeacher") || issueFields.includes("labSubject") ? "field-error" : ""}`}
                 key={groupName}
                 style={{ marginBottom: 10 }}
               >
                 <h4>{groupName}</h4>
+                <div className="form-group">
+                  <label>Subject</label>
+                  <select
+                    className={issueFields.includes("labSubject") ? "input-error" : ""}
+                    value={group?.subjectId || ""}
+                    onChange={(e) => {
+                      clearIssueIndicators();
+                      handleGroupChange(groupName, "subjectId", e.target.value);
+                      handleGroupChange(groupName, "teacherId", "");
+                    }}
+                    disabled={submitting}
+                  >
+                    <option value="">Select subject</option>
+                    {labSubjects.map((subject) => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.code} - {subject.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="form-group">
                   <label>Lab</label>
                   <select
@@ -449,10 +493,10 @@ export default function EntryForm({
                       clearIssueIndicators();
                       handleGroupChange(groupName, "teacherId", e.target.value);
                     }}
-                    disabled={submitting || !subjectId}
+                    disabled={submitting || !group?.subjectId}
                   >
                     <option value="">Select teacher</option>
-                    {filteredTeachers.map((teacher) => (
+                    {getTeachersForSubject(group?.subjectId).map((teacher) => (
                       <option key={teacher.id} value={teacher.id}>
                         {teacher.abbreviation} - {teacher.name}
                       </option>
@@ -465,6 +509,9 @@ export default function EntryForm({
         )}
 
         {error ? <div className="error-line">{error}</div> : null}
+        {entryType === "LAB" && hasPartialLabGroup ? (
+          <div className="error-line">For each selected group, choose Subject, Lab, and Teacher.</div>
+        ) : null}
 
         <div className="form-row">
           <button className="btn btn-primary" type="submit" disabled={submitting || !(canSubmitTheory || canSubmitLab)}>

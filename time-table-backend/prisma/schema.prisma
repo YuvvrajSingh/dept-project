@@ -32,6 +32,7 @@ model Subject {
   teacherSubjects  TeacherSubject[]
   classSubjects    ClassSubject[]
   timetableEntries TimetableEntry[]
+  labGroupEntries  LabGroupEntry[]
 }
 
 enum SubjectType {
@@ -89,11 +90,11 @@ model TimetableEntry {
   slotStart      Int
   slotEnd        Int
   entryType      EntryType
-  subjectId      Int
+  subjectId      Int?
   teacherId      Int?
   roomId         Int?
   classSection   ClassSection    @relation(fields: [classSectionId], references: [id])
-  subject        Subject         @relation(fields: [subjectId], references: [id])
+  subject        Subject?        @relation(fields: [subjectId], references: [id])
   teacher        Teacher?        @relation(fields: [teacherId], references: [id])
   room           Room?           @relation(fields: [roomId], references: [id])
   labGroups      LabGroupEntry[]
@@ -110,9 +111,11 @@ model LabGroupEntry {
   id               Int            @id @default(autoincrement())
   timetableEntryId Int
   groupName        String
+  subjectId        Int?
   labId            Int
   teacherId        Int
   timetableEntry   TimetableEntry @relation(fields: [timetableEntryId], references: [id], onDelete: Cascade)
+  subject          Subject?       @relation(fields: [subjectId], references: [id])
   lab              Lab            @relation(fields: [labId], references: [id])
   teacher          Teacher        @relation(fields: [teacherId], references: [id])
 }
