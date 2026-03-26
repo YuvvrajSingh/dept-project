@@ -1,0 +1,555 @@
+{
+  "info": {
+    "_postman_id": "84fd7b22-653c-4f44-a1d2-2c25e8b8584f",
+    "name": "Timetable API Conflict Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Manual conflict testing suite for THEORY and LAB timetable entries. Run requests in order."
+  },
+  "item": [
+    {
+      "name": "0. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Health is up', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Create Base THEORY Entry (Expected 201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"classSectionId\": {{classSectionIdBase}},\n  \"day\": {{dayTheory}},\n  \"slotStart\": {{slotTheory}},\n  \"entryType\": \"THEORY\",\n  \"subjectId\": {{subjectIdTheory}},\n  \"teacherId\": {{teacherIdBase}},\n  \"roomId\": {{roomIdBase}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/timetable/entry",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "timetable",
+            "entry"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Created timetable entry', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('entryIdBase', String(json.id));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Teacher Conflict (Expected 409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"classSectionId\": {{classSectionIdTeacherConflict}},\n  \"day\": {{dayTheory}},\n  \"slotStart\": {{slotTheory}},\n  \"entryType\": \"THEORY\",\n  \"subjectId\": {{subjectIdTheory}},\n  \"teacherId\": {{teacherIdBase}},\n  \"roomId\": {{roomIdTeacherConflict}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/timetable/entry",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "timetable",
+            "entry"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Teacher conflict status', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Room Conflict (Expected 409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"classSectionId\": {{classSectionIdRoomConflict}},\n  \"day\": {{dayTheory}},\n  \"slotStart\": {{slotTheory}},\n  \"entryType\": \"THEORY\",\n  \"subjectId\": {{subjectIdTheoryAlt}},\n  \"teacherId\": {{teacherIdRoomConflict}},\n  \"roomId\": {{roomIdBase}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/timetable/entry",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "timetable",
+            "entry"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Room conflict status', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Class Slot Conflict (Expected 409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"classSectionId\": {{classSectionIdBase}},\n  \"day\": {{dayTheory}},\n  \"slotStart\": {{slotTheory}},\n  \"entryType\": \"THEORY\",\n  \"subjectId\": {{subjectIdTheory}},\n  \"teacherId\": {{teacherIdBase}},\n  \"roomId\": {{roomIdTeacherConflict}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/timetable/entry",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "timetable",
+            "entry"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Class-slot conflict status', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4A. Prereq Assign LAB Subject To Teacher 1",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"subjectId\": {{subjectIdLab}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/teachers/1/subjects",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "teachers",
+            "1",
+            "subjects"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Teacher 1 lab subject assigned or already exists', function () {",
+              "  pm.expect([201, 409]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4B. Prereq Assign LAB Subject To Teacher 2",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"subjectId\": {{subjectIdLab}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/teachers/2/subjects",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "teachers",
+            "2",
+            "subjects"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Teacher 2 lab subject assigned or already exists', function () {",
+              "  pm.expect([201, 409]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4C. Prereq Assign LAB Subject To Teacher 3",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"subjectId\": {{subjectIdLab}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/teachers/3/subjects",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "teachers",
+            "3",
+            "subjects"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Teacher 3 lab subject assigned or already exists', function () {",
+              "  pm.expect([201, 409]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4D. Prereq Assign LAB Subject To Teacher 4",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"subjectId\": {{subjectIdLab}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/teachers/4/subjects",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "teachers",
+            "4",
+            "subjects"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Teacher 4 lab subject assigned or already exists', function () {",
+              "  pm.expect([201, 409]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. LAB Base Entry (Expected 201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"classSectionId\": {{classSectionIdLabBase}},\n  \"day\": {{dayLab}},\n  \"entryType\": \"LAB\",\n  \"subjectId\": {{subjectIdLab}},\n  \"labGroups\": [\n    { \"groupName\": \"A1\", \"labId\": {{labIdA1}}, \"teacherId\": {{teacherIdLabA1}} },\n    { \"groupName\": \"A2\", \"labId\": {{labIdA2}}, \"teacherId\": {{teacherIdLabA2}} },\n    { \"groupName\": \"A3\", \"labId\": {{labIdA3}}, \"teacherId\": {{teacherIdLabA3}} }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/timetable/entry",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "timetable",
+            "entry"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('LAB entry created', function () {",
+              "  pm.response.to.have.status(201);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. LAB Teacher Conflict (Expected 409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"classSectionId\": {{classSectionIdLabConflict}},\n  \"day\": {{dayLab}},\n  \"entryType\": \"LAB\",\n  \"subjectId\": {{subjectIdLab}},\n  \"labGroups\": [\n    { \"groupName\": \"A1\", \"labId\": {{labIdAltA1}}, \"teacherId\": {{teacherIdLabA1}} },\n    { \"groupName\": \"A2\", \"labId\": {{labIdAltA2}}, \"teacherId\": {{teacherIdLabA2}} },\n    { \"groupName\": \"A3\", \"labId\": {{labIdAltA3}}, \"teacherId\": {{teacherIdLabA3}} }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/timetable/entry",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "timetable",
+            "entry"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('LAB teacher conflict status', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. LAB Lab Conflict (Expected 409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"classSectionId\": {{classSectionIdLabConflict}},\n  \"day\": {{dayLab}},\n  \"entryType\": \"LAB\",\n  \"subjectId\": {{subjectIdLab}},\n  \"labGroups\": [\n    { \"groupName\": \"A1\", \"labId\": {{labIdA1}}, \"teacherId\": {{teacherIdLabAltA1}} },\n    { \"groupName\": \"A2\", \"labId\": {{labIdA2}}, \"teacherId\": {{teacherIdLabAltA2}} },\n    { \"groupName\": \"A3\", \"labId\": {{labIdA3}}, \"teacherId\": {{teacherIdLabAltA3}} }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/timetable/entry",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "timetable",
+            "entry"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('LAB room conflict status', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Get Timetable Matrix (Expected 200)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/timetable/{{classSectionIdBase}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "timetable",
+            "{{classSectionIdBase}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Matrix fetch success', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.test('Contains timetable object', function () {",
+              "  pm.expect(json).to.have.property('timetable');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+
+    { "key": "classSectionIdBase", "value": "1" },
+    { "key": "classSectionIdTeacherConflict", "value": "4" },
+    { "key": "classSectionIdRoomConflict", "value": "5" },
+    { "key": "dayTheory", "value": "6" },
+    { "key": "slotTheory", "value": "1" },
+    { "key": "subjectIdTheory", "value": "7" },
+    { "key": "subjectIdTheoryAlt", "value": "11" },
+    { "key": "teacherIdBase", "value": "3" },
+    { "key": "teacherIdRoomConflict", "value": "5" },
+    { "key": "roomIdBase", "value": "6" },
+    { "key": "roomIdTeacherConflict", "value": "2" },
+
+    { "key": "classSectionIdLabBase", "value": "2" },
+    { "key": "classSectionIdLabConflict", "value": "5" },
+    { "key": "dayLab", "value": "5" },
+    { "key": "subjectIdLab", "value": "18" },
+
+    { "key": "labIdA1", "value": "1" },
+    { "key": "labIdA2", "value": "2" },
+    { "key": "labIdA3", "value": "3" },
+    { "key": "teacherIdLabA1", "value": "5" },
+    { "key": "teacherIdLabA2", "value": "1" },
+    { "key": "teacherIdLabA3", "value": "2" },
+
+    { "key": "labIdAltA1", "value": "4" },
+    { "key": "labIdAltA2", "value": "5" },
+    { "key": "labIdAltA3", "value": "1" },
+
+    { "key": "teacherIdLabAltA1", "value": "3" },
+    { "key": "teacherIdLabAltA2", "value": "4" },
+    { "key": "teacherIdLabAltA3", "value": "5" }
+  ]
+}

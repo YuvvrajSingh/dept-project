@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Branch {
+  id       Int            @id @default(autoincrement())
+  name     String         @unique
+  sections ClassSection[]
+}
+
+model ClassSection {
+  id         Int              @id @default(autoincrement())
+  branchId   Int
+  year       Int
+  branch     Branch           @relation(fields: [branchId], references: [id])
+  subjects   ClassSubject[]
+  timetable  TimetableEntry[]
+
+  @@unique([branchId, year])
+}
+
+model Subject {
+  id               Int               @id @default(autoincrement())
+  code             String            @unique
+  name             String
+  type             SubjectType
+  creditHours      Int
+  teacherSubjects  TeacherSubject[]
+  classSubjects    ClassSubject[]
+  timetableEntries TimetableEntry[]
+}
+
+enum SubjectType {
+  THEORY
+  LAB
+}
+
+model Teacher {
+  id               Int               @id @default(autoincrement())
+  name             String
+  abbreviation     String            @unique
+  teacherSubjects  TeacherSubject[]
+  timetableEntries TimetableEntry[]
+  labGroupEntries  LabGroupEntry[]
+}
+
+model TeacherSubject {
+  id        Int     @id @default(autoincrement())
+  teacherId Int
+  subjectId Int
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, subjectId])
+}
+
+model ClassSubject {
+  id             Int          @id @default(autoincrement())
+  classSectionId Int
+  subjectId      Int
+  classSection   ClassSection @relation(fields: [classSectionId], references: [id], onDelete: Cascade)
+  subject        Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([classSectionId, subjectId])
+}
+
+model Room {
+  id               Int              @id @default(autoincrement())
+  name             String           @unique
+  capacity         Int              @default(60)
+  timetableEntries TimetableEntry[]
+}
+
+model Lab {
+  id              Int             @id @default(autoincrement())
+  name            String          @unique
+  capacity        Int             @default(20)
+  labGroupEntries LabGroupEntry[]
+}
+
+model TimetableEntry {
+  id             Int             @id @default(autoincrement())
+  classSectionId Int
+  day            Int
+  slotStart      Int
+  slotEnd        Int
+  entryType      EntryType
+  subjectId      Int
+  teacherId      Int?
+  roomId         Int?
+  classSection   ClassSection    @relation(fields: [classSectionId], references: [id])
+  subject        Subject         @relation(fields: [subjectId], references: [id])
+  teacher        Teacher?        @relation(fields: [teacherId], references: [id])
+  room           Room?           @relation(fields: [roomId], references: [id])
+  labGroups      LabGroupEntry[]
+
+  @@unique([classSectionId, day, slotStart])
+}
+
+enum EntryType {
+  THEORY
+  LAB
+}
+
+model LabGroupEntry {
+  id               Int            @id @default(autoincrement())
+  timetableEntryId Int
+  groupName        String
+  labId            Int
+  teacherId        Int
+  timetableEntry   TimetableEntry @relation(fields: [timetableEntryId], references: [id], onDelete: Cascade)
+  lab              Lab            @relation(fields: [labId], references: [id])
+  teacher          Teacher        @relation(fields: [teacherId], references: [id])
+}

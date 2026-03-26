@@ -1,0 +1,94 @@
+import type { NextFunction, Request, Response } from "express";
+import { teacherService } from "../services/teacher.service";
+
+export const teacherController = {
+  async list(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await teacherService.listTeachers();
+      res.status(200).json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = Number(req.params.id);
+      const data = await teacherService.getTeacherById(id);
+      res.status(200).json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async create(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = await teacherService.createTeacher(req.body);
+      res.status(201).json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async update(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = Number(req.params.id);
+      const data = await teacherService.updateTeacher(id, req.body);
+      res.status(200).json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async remove(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = Number(req.params.id);
+      await teacherService.deleteTeacher(id);
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async assignSubject(req: Request, res: Response, next: NextFunction) {
+    try {
+      const teacherId = Number(req.params.id);
+      const { subjectId } = req.body as { subjectId: number };
+      const data = await teacherService.assignSubject(teacherId, subjectId);
+      res.status(201).json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async removeSubject(req: Request, res: Response, next: NextFunction) {
+    try {
+      const teacherId = Number(req.params.id);
+      const subjectId = Number(req.params.subjectId);
+      await teacherService.removeSubject(teacherId, subjectId);
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getSubjects(req: Request, res: Response, next: NextFunction) {
+    try {
+      const teacherId = Number(req.params.id);
+      const data = await teacherService.getTeacherSubjects(teacherId);
+      res.status(200).json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getSchedule(req: Request, res: Response, next: NextFunction) {
+    try {
+      const teacherId = Number(req.params.id);
+      const data = await teacherService.getTeacherSchedule(teacherId);
+      res.status(200).json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+};

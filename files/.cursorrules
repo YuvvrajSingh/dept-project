@@ -1,0 +1,63 @@
+# Cursor / Copilot Rules
+
+When working in this project always follow these rules:
+
+## Before writing any code
+1. Read PROMPT.md — understand what you are building
+2. Read API.md — know every endpoint and data shape
+3. Read DOMAIN_RULES.md — never break business rules
+4. Read SCREENS.md — understand each page's behaviour
+5. Read COMPONENTS.md — follow the component structure
+6. Read DESIGN_SYSTEM.md — use only defined tokens and styles
+7. Read ERROR_HANDLING.md — handle every error case correctly
+
+## Code style
+- Functional components only, no class components
+- useState + useEffect for all data fetching (no extra libs)
+- One useEffect per data concern per page
+- Extract repeated fetch logic into the api/ modules, never inline fetch calls in JSX
+- All CSS goes in src/styles/ or as a dedicated .css file per component — no inline styles except for truly dynamic values (e.g. a width calculated from JS)
+- Use CSS class names from DESIGN_SYSTEM.md — do not invent new class names without adding them to the design system
+
+## Never do
+- Never use Tailwind, Bootstrap, MUI, Chakra, or any CSS framework
+- Never use axios — use the client.js fetch wrapper
+- Never use React Query — plain hooks only
+- Never hardcode error messages — always use response.message from API
+- Never show a 409 or 422 error as a Toast — use ConflictBanner
+- Never allow form submission while loading/submitting is true
+- Never display LAB slot as user-selectable
+- Never submit a LAB entry with fewer than 3 groups
+
+## File creation order (when building from scratch)
+1. src/styles/tokens.css
+2. src/styles/global.css
+3. src/api/client.js
+4. src/api/*.js  (one per entity)
+5. src/components/Spinner.jsx
+6. src/components/Toast.jsx
+7. src/components/ConflictBanner.jsx
+8. src/components/Sidebar.jsx
+9. src/components/StatCard.jsx
+10. src/components/DataTable.jsx
+11. src/components/EntityDrawer.jsx
+12. src/components/TimetableGrid.jsx
+13. src/components/EntryForm.jsx
+14. src/pages/Dashboard.jsx
+15. src/pages/MasterData.jsx
+16. src/pages/Assignments.jsx
+17. src/pages/TimetableBuilder.jsx
+18. src/pages/TimetableViews.jsx
+19. src/App.jsx
+20. src/main.jsx
+21. index.html (add Google Fonts link tag)
+
+## How to start the project
+```bash
+npm create vite@latest timetable-frontend -- --template react
+cd timetable-frontend
+npm install react-router-dom
+npm run dev
+```
+
+No other dependencies are needed or allowed.

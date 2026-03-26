@@ -1,0 +1,407 @@
+{
+  "info": {
+    "_postman_id": "d2f2a0f1-7b37-4d07-95e4-9e2f1e59f8ab",
+    "name": "Timetable API Happy Path",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Resolve CSE Branch From Seeded Data",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/classes",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "classes"
+          ]
+        },
+        "description": "Branches are seeded. This request resolves CSE branchId for the next steps."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const rows = pm.response.json();",
+              "const cse = rows.find((r) => r.branch?.name === 'CSE');",
+              "if (cse) {",
+              "  pm.collectionVariables.set('branchId', String(cse.branchId));",
+              "}",
+              "pm.collectionVariables.set('year', '3');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Create Teacher",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Mrs. Simran Choudhary\",\n  \"abbreviation\": \"SCX\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/teachers",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "teachers"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('teacherId', String(json.id));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Create Subject",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"7ADS41AX\",\n  \"name\": \"Generative Artificial Intelligence\",\n  \"type\": \"THEORY\",\n  \"creditHours\": 4\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/subjects",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "subjects"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('subjectId', String(json.id));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Assign Subject To Teacher",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"subjectId\": {{subjectId}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/teachers/{{teacherId}}/subjects",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "teachers",
+            "{{teacherId}}",
+            "subjects"
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. Create Class Section",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"branchId\": {{branchId}},\n  \"year\": {{year}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/classes",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "classes"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('classSectionId', String(json.id));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Assign Subject To Class",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"subjectId\": {{subjectId}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/classes/{{classSectionId}}/subjects",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "classes",
+            "{{classSectionId}}",
+            "subjects"
+          ]
+        }
+      }
+    },
+    {
+      "name": "7. Create Room",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"CSE-9\",\n  \"capacity\": 60\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rooms",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "rooms"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "const json = pm.response.json();",
+              "pm.collectionVariables.set('roomId', String(json.id));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Create Lab",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"LAB-7\",\n  \"capacity\": 20\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/labs",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "labs"
+          ]
+        }
+      }
+    },
+    {
+      "name": "9. Create THEORY Timetable Entry",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"classSectionId\": {{classSectionId}},\n  \"day\": 1,\n  \"slotStart\": 1,\n  \"entryType\": \"THEORY\",\n  \"subjectId\": {{subjectId}},\n  \"teacherId\": {{teacherId}},\n  \"roomId\": {{roomId}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/timetable/entry",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "timetable",
+            "entry"
+          ]
+        }
+      }
+    },
+    {
+      "name": "10. Create Same Timetable Entry Again (Expect 409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"classSectionId\": {{classSectionId}},\n  \"day\": 1,\n  \"slotStart\": 1,\n  \"entryType\": \"THEORY\",\n  \"subjectId\": {{subjectId}},\n  \"teacherId\": {{teacherId}},\n  \"roomId\": {{roomId}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/timetable/entry",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "timetable",
+            "entry"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 409', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Get Class Timetable Matrix",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/timetable/{{classSectionId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "timetable",
+            "{{classSectionId}}"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "branchId",
+      "value": "1"
+    },
+    {
+      "key": "year",
+      "value": "3"
+    },
+    {
+      "key": "teacherId",
+      "value": ""
+    },
+    {
+      "key": "subjectId",
+      "value": ""
+    },
+    {
+      "key": "classSectionId",
+      "value": ""
+    },
+    {
+      "key": "roomId",
+      "value": ""
+    }
+  ]
+}
