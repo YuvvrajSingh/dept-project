@@ -1,0 +1,2 @@
+# Ignore Prisma generated client artifacts
+node_modules/.prisma/
