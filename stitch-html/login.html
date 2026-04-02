@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Login | DEPT // TIMETABLE</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary": "#000000",
+              "inverse-on-surface": "#eff1f3",
+              "surface-tint": "#545f73",
+              "on-tertiary-fixed": "#23005c",
+              "inverse-surface": "#2d3133",
+              "tertiary-container": "#23005c",
+              "inverse-primary": "#bcc7de",
+              "on-background": "#191c1e",
+              "tertiary-fixed": "#e9ddff",
+              "on-tertiary-container": "#9466ff",
+              "on-secondary-fixed-variant": "#2f2ebe",
+              "secondary-fixed-dim": "#c0c1ff",
+              "primary-container": "#111c2d",
+              "on-secondary-fixed": "#07006c",
+              "surface-container": "#eceef0",
+              "primary": "#000000",
+              "surface-variant": "#e0e3e5",
+              "surface-container-lowest": "#ffffff",
+              "on-primary": "#ffffff",
+              "surface-container-high": "#e6e8ea",
+              "primary-fixed": "#d8e3fb",
+              "outline-variant": "#c6c6cd",
+              "on-error-container": "#93000a",
+              "background": "#f7f9fb",
+              "on-secondary": "#ffffff",
+              "surface-dim": "#d8dadc",
+              "on-error": "#ffffff",
+              "surface-container-low": "#f2f4f6",
+              "secondary-fixed": "#e1e0ff",
+              "surface-bright": "#f7f9fb",
+              "on-surface": "#191c1e",
+              "tertiary-fixed-dim": "#d0bcff",
+              "outline": "#76777d",
+              "on-primary-fixed": "#111c2d",
+              "error": "#ba1a1a",
+              "error-container": "#ffdad6",
+              "surface": "#f7f9fb",
+              "on-surface-variant": "#45464d",
+              "primary-fixed-dim": "#bcc7de",
+              "on-secondary-container": "#fffbff",
+              "on-tertiary": "#ffffff",
+              "on-tertiary-fixed-variant": "#5516be",
+              "surface-container-highest": "#e0e3e5",
+              "on-primary-fixed-variant": "#3c475a",
+              "secondary": "#4648d4",
+              "on-primary-container": "#79849a",
+              "secondary-container": "#6063ee"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .litho-gradient {
+            background: linear-gradient(135deg, #4648d4 0%, #6063ee 100%);
+        }
+        .architectural-shadow {
+            box-shadow: 0 20px 40px rgba(25, 28, 30, 0.06);
+        }
+        .glass-panel {
+            background-color: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface flex flex-col min-h-screen selection:bg-secondary-fixed selection:text-on-secondary-fixed">
+<main class="flex-grow flex items-center justify-center p-6 relative overflow-hidden">
+<div class="absolute inset-0 z-0 opacity-10 pointer-events-none">
+<div class="absolute top-0 left-0 w-full h-full" style="background-image: radial-gradient(circle at 2px 2px, #111c2d 1px, transparent 0); background-size: 40px 40px;">
+</div>
+</div>
+<div class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-0 architectural-shadow rounded-xl overflow-hidden z-10">
+<div class="lg:col-span-7 bg-primary-container p-12 lg:p-20 flex flex-col justify-between text-white relative">
+<div class="absolute inset-0 z-0 opacity-20">
+<img alt="Modern architectural lines and blueprints" class="w-full h-full object-cover" data-alt="Monochromatic dark blue architectural structure with clean sharp geometric lines and high contrast shadows in a professional setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCR8Qgl5sIVJmDbHK4ocRPpfxR7qDsMIxIBm25bHsTPqGSnFTmy9hfCmBPQLn4loUUVWoWBedZk0uSSxuj0wJ-6aoKboDGUW7xa6FGk7ai1Ts9CbTR4jFI0hgtGXNbqcZJF9hlIcqnRF-fR3Op13rKRsZHFYJF2qb6_4or9ZCzZPLz0GhwhhgpjiPMFWRSWoMmXzMXqKUIwV40jlEV4aMH7FreR0jPuy8kZqUaKaQMWeUbYwQ8OtAwPGnD8fs-baUoCgoQVKUGIq2Y"/>
+</div>
+<div class="relative z-10">
+<h1 class="text-3xl font-black tracking-[0.1em] uppercase text-surface-container-lowest">
+                        DEPT // TIMETABLE
+                    </h1>
+<p class="mt-4 text-on-primary-container font-medium tracking-tight text-lg">
+                        Department Scheduling System
+                    </p>
+</div>
+<div class="relative z-10 mt-20">
+<div class="space-y-6">
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-secondary-fixed-dim" data-icon="architecture">architecture</span>
+<div>
+<h3 class="font-bold text-surface-container-lowest text-sm uppercase tracking-wider">Architectural Ledger</h3>
+<p class="text-on-primary-container text-sm leading-relaxed max-w-xs">Precision-engineered scheduling for elite academic environments.</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-secondary-fixed-dim" data-icon="grid_view">grid_view</span>
+<div>
+<h3 class="font-bold text-surface-container-lowest text-sm uppercase tracking-wider">Tonal Depth</h3>
+<p class="text-on-primary-container text-sm leading-relaxed max-w-xs">Visual clarity through sophisticated surface layering and hierarchy.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="lg:col-span-5 bg-surface-container-lowest p-12 lg:p-16 flex flex-col justify-center">
+<div class="mb-10">
+<h2 class="text-2xl font-bold tracking-tighter text-on-surface mb-2">Portal Access</h2>
+<p class="text-on-surface-variant text-sm font-medium">Enter your credentials to manage department schedules.</p>
+</div>
+<form class="space-y-8">
+<div class="space-y-2">
+<label class="text-xs font-semibold uppercase tracking-widest text-on-surface-variant block" for="email">Academic Email</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none border-b-2 border-outline-variant/20 focus:ring-0 focus:border-secondary transition-colors py-3 text-on-surface placeholder:text-outline/50" id="email" name="email" placeholder="hod.cse@university.edu" type="email"/>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between items-center">
+<label class="text-xs font-semibold uppercase tracking-widest text-on-surface-variant block" for="password">Access Token</label>
+<a class="text-[10px] font-bold text-secondary uppercase tracking-tighter hover:underline" href="#">Forgot?</a>
+</div>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none border-b-2 border-outline-variant/20 focus:ring-0 focus:border-secondary transition-colors py-3 text-on-surface placeholder:text-outline/50" id="password" name="password" placeholder="••••••••••••" type="password"/>
+</div>
+</div>
+<div class="flex items-center gap-3 py-2">
+<input class="w-4 h-4 rounded-sm border-outline-variant text-secondary focus:ring-secondary" id="remember" type="checkbox"/>
+<label class="text-xs font-medium text-on-surface-variant" for="remember">Maintain active session</label>
+</div>
+<button class="w-full litho-gradient text-white font-bold py-4 rounded-lg architectural-shadow hover:translate-y-[-1px] active:scale-[0.98] transition-all flex items-center justify-center gap-2 group" type="submit">
+<span>ESTABLISH SESSION</span>
+<span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</form>
+<div class="mt-12 flex items-center gap-4">
+<div class="h-[1px] flex-grow bg-surface-variant"></div>
+<span class="text-[10px] font-bold text-outline uppercase tracking-[0.2em]">Authorized Personnel Only</span>
+<div class="h-[1px] flex-grow bg-surface-variant"></div>
+</div>
+</div>
+</div>
+</main>
+<footer class="p-8 text-center relative z-10">
+<p class="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-[0.3em]">
+            © 2024 DEPT // TIMETABLE • INSTITUTIONAL ACADEMIC RESOURCE • V2.4.0
+        </p>
+</footer>
+</body></html>
