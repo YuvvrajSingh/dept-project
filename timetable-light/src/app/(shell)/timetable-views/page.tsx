@@ -120,6 +120,14 @@ export default function TimetableViewsPage() {
     return null;
   }
 
+  function handleExportPdf() {
+    if (viewMode === "class" && selectedClass) {
+      window.open(timetableApi.getExportPdfUrl(selectedClass), "_blank");
+    } else {
+      alert("Please select a class to export its timetable.");
+    }
+  }
+
   return (
     <div className="max-w-7xl mx-auto w-full space-y-8">
       {/* Header */}
@@ -182,10 +190,16 @@ export default function TimetableViewsPage() {
             </select>
           )}
         </div>
-        <button className="h-[42px] px-6 bg-primary-container text-white font-bold text-sm rounded-lg hover:opacity-90 transition-all flex items-center gap-2">
-          <span className="material-symbols-outlined text-sm">print</span>
-          Export / Print
-        </button>
+        
+        {viewMode === "class" && selectedClass && (
+          <button 
+            onClick={handleExportPdf}
+            className="h-[42px] px-6 bg-primary-container text-white font-bold text-sm rounded-lg hover:opacity-90 transition-all flex items-center gap-2"
+          >
+            <span className="material-symbols-outlined text-sm">print</span>
+            Export / Print
+          </button>
+        )}
       </div>
 
       {/* Content */}

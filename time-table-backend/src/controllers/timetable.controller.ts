@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { EntryType } from "@prisma/client";
 import { timetableService } from "../services/timetable.service";
+import { pdfService } from "../services/pdf.service";
 
 export const timetableController = {
   async getClassTimetable(req: Request, res: Response, next: NextFunction) {
@@ -53,6 +54,19 @@ export const timetableController = {
       const teacherId = Number(req.params.teacherId);
       const data = await timetableService.getTeacherSchedule(teacherId);
       res.status(200).json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async exportTimetablePdf(req: Request, res: Response, next: NextFunction) {
+    try {
+      const classSectionId = Number(req.params.classSectionId);
+      const pdfBuffer = await pdfService.generateTimetablePdf(classSectionId);
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="timetable-${classSectionId}.pdf"`);
+      res.status(200).send(pdfBuffer);
     } catch (error) {
       next(error);
     }

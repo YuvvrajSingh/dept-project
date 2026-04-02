@@ -133,4 +133,19 @@ router.get(
   timetableController.getClassTimetable,
 );
 
+router.get(
+  "/:classSectionId/export/pdf",
+  (req, _res, next) => {
+    try {
+      classSectionParamSchema.parse({
+        classSectionId: req.params.classSectionId,
+      });
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
+  timetableController.exportTimetablePdf,
+);
+
 export default router;
