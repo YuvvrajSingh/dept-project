@@ -156,14 +156,14 @@ export default function TimetableViewsPage() {
       {/* Selector */}
       <div className="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10 flex gap-6 items-end">
         <div className="space-y-2">
-          <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">
+          <label className="block text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">
             {viewMode === "class" ? "Class Selection" : viewMode === "teacher" ? "Teacher" : "Room"}
           </label>
           {viewMode === "class" && (
             <select
               value={selectedClass ?? ""}
               onChange={(e) => loadClassView(parseInt(e.target.value))}
-              className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-56 outline-none"
+              className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-56 outline-none border-2"
             >
               <option value="">Select class...</option>
               {classes.map((c) => <option key={c.id} value={c.id}>{c.branch?.name} - Year {c.year}</option>)}

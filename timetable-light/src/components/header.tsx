@@ -19,7 +19,7 @@ export default function Header() {
       <div className="flex items-baseline gap-4">
         <h2 className="text-xl font-bold tracking-tighter text-on-surface">{title}</h2>
         <div className="flex gap-2">
-          <span className="px-2 py-0.5 bg-primary-container text-on-primary-fixed-variant text-[10px] font-bold uppercase rounded">
+          <span className="px-2 py-0.5 bg-primary-container text-on-secondary text-[10px] font-bold uppercase rounded">
             CSE
           </span>
           <span className="px-2 py-0.5 bg-secondary-fixed text-on-secondary-fixed-variant text-[10px] font-bold uppercase rounded">
