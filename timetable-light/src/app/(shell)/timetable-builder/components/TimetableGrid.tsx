@@ -7,26 +7,54 @@ interface TimetableGridProps {
   loading: boolean;
   filledSlots: number;
   onCellClick?: (day: number, slot: number, data: SlotData) => void;
+  onDropEntry?: (sourceDay: number, sourceSlot: number, targetDay: number, targetSlot: number) => void;
 }
 
-export function TimetableGrid({ matrix, loading, filledSlots, onCellClick }: TimetableGridProps) {
+export function TimetableGrid({ matrix, loading, filledSlots, onCellClick, onDropEntry }: TimetableGridProps) {
+  const handleDragStart = (e: React.DragEvent, day: number, slot: number) => {
+    e.dataTransfer.setData("application/json", JSON.stringify({ day, slot }));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // necessary to allow dropping
+  };
+
+  const handleDrop = (e: React.DragEvent, targetDay: number, targetSlot: number) => {
+    e.preventDefault();
+    const dataStr = e.dataTransfer.getData("application/json");
+    if (!dataStr) return;
+    
+    try {
+      const { day, slot } = JSON.parse(dataStr);
+      if (day === targetDay && slot === targetSlot) return; // dropped on same slot
+      onDropEntry?.(day, slot, targetDay, targetSlot);
+    } catch {
+      // ignore parse errors
+    }
+  };
   function renderSlotCell(data: SlotData, day: number, slot: number) {
     if (!data) {
       return (
-        <div 
-          onClick={() => onCellClick?.(day, slot, null)}
-          className="bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm opacity-20 slot-cell cursor-pointer hover:bg-surface-container-high hover:opacity-100 transition-all border border-transparent hover:border-outline" 
-        />
+      <div 
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, day, slot)}
+        onClick={() => onCellClick?.(day, slot, null)}
+        className="bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm opacity-20 slot-cell cursor-pointer hover:bg-surface-container-high hover:opacity-100 transition-all border border-transparent hover:border-outline" 
+      />
       );
     }
     if (data.type === "LAB_CONTINUATION") return null;
 
     if (data.type === "THEORY") {
       return (
-        <div 
-          onClick={() => onCellClick?.(day, slot, data)}
-          className="bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm border-l-4 border-indigo-600 slot-cell cursor-pointer hover:bg-surface-container-high transition-colors"
-        >
+      <div 
+        draggable
+        onDragStart={(e) => handleDragStart(e, day, slot)}
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, day, slot)}
+        onClick={() => onCellClick?.(day, slot, data)}
+        className="bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm border-l-4 border-indigo-600 slot-cell cursor-pointer hover:bg-surface-container-high transition-colors"
+      >
           <div className="text-[10px] font-bold text-indigo-600 mb-1">THEORY</div>
           <div className="text-sm font-bold text-on-surface leading-tight">{data.subjectCode}</div>
           <div className="mt-2 text-[10px] text-on-surface-variant">
@@ -38,10 +66,14 @@ export function TimetableGrid({ matrix, loading, filledSlots, onCellClick }: Tim
 
     if (data.type === "LAB") {
       return (
-        <div 
-          onClick={() => onCellClick?.(day, slot, data)}
-          className="lab-merged-cell m-0.5 p-3 rounded shadow-sm border-l-4 border-tertiary-container bg-surface-container-lowest cursor-pointer hover:bg-surface-container-high transition-colors"
-        >
+      <div 
+        draggable
+        onDragStart={(e) => handleDragStart(e, day, slot)}
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, day, slot)}
+        onClick={() => onCellClick?.(day, slot, data)}
+        className="lab-merged-cell m-0.5 p-3 rounded shadow-sm border-l-4 border-tertiary-container bg-surface-container-lowest cursor-pointer hover:bg-surface-container-high transition-colors"
+      >
           <div className="text-[10px] font-bold text-on-tertiary-container mb-1 uppercase tracking-tighter">LAB SESSION</div>
           <div className="text-sm font-bold text-on-surface leading-tight">LABS</div>
           <div className="mt-3 space-y-1">
@@ -120,7 +152,16 @@ export function TimetableGrid({ matrix, loading, filledSlots, onCellClick }: Tim
                 </div>
                 {[1, 2, 3, 4, 5, 6].map((day) => {
                   const data = matrix?.timetable[String(day)]?.slots[String(slot)] ?? null;
-                  if (data?.type === "LAB_CONTINUATION") return <div key={`${day}-${slot}`} />;
+                  if (data?.type === "LAB_CONTINUATION") {
+                    return (
+                      <div 
+                        key={`${day}-${slot}`} 
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, day, slot)}
+                        className="slot-cell"
+                      />
+                    );
+                  }
                   return <div key={`${day}-${slot}`}>{renderSlotCell(data, day, slot)}</div>;
                 })}
               </Fragment>

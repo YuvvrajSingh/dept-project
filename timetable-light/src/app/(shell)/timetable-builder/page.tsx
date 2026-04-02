@@ -98,6 +98,56 @@ export default function TimetableBuilderPage() {
     return acc + Object.values(currentDay.slots).filter((s) => s && s.type !== "LAB_CONTINUATION").length;
   }, 0) : 0;
 
+  const handleDropEntry = async (sourceDay: number, sourceSlot: number, targetDay: number, targetSlot: number) => {
+    if (!matrix || !selectedClass) return;
+    
+    const sourceData = matrix.timetable[String(sourceDay)]?.slots[String(sourceSlot)];
+    if (!sourceData || !("entryId" in sourceData)) return;
+
+    const targetData = matrix.timetable[String(targetDay)]?.slots[String(targetSlot)];
+    if (targetData) {
+      alert("Target slot is already occupied. Please clear it first to avoid conflicts.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (sourceData.type === "THEORY") {
+        const payload = {
+          classSectionId: matrix.classSectionId,
+          day: targetDay,
+          slotStart: targetSlot,
+          entryType: "THEORY" as const,
+          subjectId: sourceData.subjectId,
+          teacherId: sourceData.teacherId!,
+          roomId: sourceData.roomId!,
+        };
+        await timetableApi.updateEntry(sourceData.entryId, payload);
+      } else if (sourceData.type === "LAB") {
+        const payload = {
+          classSectionId: matrix.classSectionId,
+          day: targetDay,
+          slotStart: targetSlot,
+          entryType: "LAB" as const,
+          subjectId: Object.values(sourceData.groups)[0]?.subjectId || 0,
+          labGroups: Object.entries(sourceData.groups).map(([groupName, info]) => ({
+            groupName,
+            subjectId: info.subjectId || 0,
+            labId: info.labId,
+            teacherId: info.teacherId,
+          })),
+        };
+        await timetableApi.updateEntry(sourceData.entryId, payload);
+      }
+      
+      await loadTimetable(selectedClass);
+    } catch (e: any) {
+      alert("Scheduling Conflict: " + (e.message || "Failed to move entry"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex gap-8">
       {/* Main Column */}
@@ -158,6 +208,7 @@ export default function TimetableBuilderPage() {
           matrix={matrix} 
           loading={loading} 
           filledSlots={filledSlots}
+          onDropEntry={handleDropEntry}
           onCellClick={(day, slot, data) => {
             setSelectedCell({ day, slot, data });
             setIsEditing(false); // reset edit mode if clicking a new cell
