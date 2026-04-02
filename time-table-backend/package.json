@@ -20,6 +20,8 @@
     "@prisma/client": "^7.5.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.4",
     "pg": "^8.20.0",
     "puppeteer": "^24.40.0",
     "zod": "^4.3.6"
@@ -28,6 +30,8 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^7.0.11",
     "@types/pg": "^8.20.0",
     "prisma": "^7.5.0",
     "tsx": "^4.21.0",

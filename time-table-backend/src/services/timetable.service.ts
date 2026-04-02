@@ -3,7 +3,8 @@ import { EntryType } from "@prisma/client";
 import { prisma } from "../prisma/client";
 import { AppError } from "../utils/AppError";
 import { buildMatrix } from "../utils/timetableMatrix";
-import { DAY_LABELS, LAB_GROUPS } from "../utils/timetableConstants";
+import { DAY_LABELS, LAB_GROUPS, SLOT_TIMES } from "../utils/timetableConstants";
+import { emailService } from "./email.service";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -368,6 +369,44 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
 };
 
 export const timetableService = {
+  async handleCancellationAlert(existing: any) {
+    const now = new Date();
+    const currentDay = now.getDay();
+    if (existing.day !== currentDay) return;
+
+    const slotStr = SLOT_TIMES[existing.slotStart as keyof typeof SLOT_TIMES].start;
+    const [slotH, slotM] = slotStr.split(':').map(Number);
+    const slotDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), slotH, slotM);
+
+    if (now < slotDate) {
+      if (existing.entryType === 'THEORY' && existing.teacher?.email) {
+        await emailService.sendClassReminder({
+          teacherEmail: existing.teacher.email,
+          teacherName: existing.teacher.name,
+          className: `${existing.classSection.branch.name} - Y${existing.classSection.year}`,
+          subjectName: existing.subject?.name || 'Subject',
+          roomName: existing.room?.name || 'Room',
+          timeLabel: slotStr,
+          isCancellation: true
+        });
+      } else if (existing.entryType === 'LAB') {
+        for (const lg of existing.labGroups) {
+          if (lg.teacher?.email) {
+            await emailService.sendClassReminder({
+              teacherEmail: lg.teacher.email,
+              teacherName: lg.teacher.name,
+              className: `${existing.classSection.branch.name} - Y${existing.classSection.year} (${lg.groupName})`,
+              subjectName: lg.subject?.name || 'Lab',
+              roomName: lg.lab.name,
+              timeLabel: slotStr,
+              isCancellation: true
+            });
+          }
+        }
+      }
+    }
+  },
+
   validateAndCreateTheoryEntry(data: TheoryEntryInput) {
     return createTheory(prisma, data);
   },
@@ -377,19 +416,43 @@ export const timetableService = {
   },
 
   async deleteEntry(id: number) {
-    const existing = await prisma.timetableEntry.findUnique({ where: { id } });
+    const existing = await prisma.timetableEntry.findUnique({ 
+      where: { id },
+      include: {
+        teacher: true,
+        subject: true,
+        room: true,
+        classSection: { include: { branch: true } },
+        labGroups: { include: { teacher: true, subject: true, lab: true } }
+      }
+    });
+
     if (!existing) {
       throw new AppError("Timetable entry not found", 404, "NOT_FOUND");
     }
+
+    await this.handleCancellationAlert(existing);
 
     await prisma.timetableEntry.delete({ where: { id } });
   },
 
   async updateEntry(id: number, data: TheoryEntryInput | LabEntryInput) {
-    const existing = await prisma.timetableEntry.findUnique({ where: { id } });
+    const existing = await prisma.timetableEntry.findUnique({ 
+      where: { id },
+      include: {
+        teacher: true,
+        subject: true,
+        room: true,
+        classSection: { include: { branch: true } },
+        labGroups: { include: { teacher: true, subject: true, lab: true } }
+      }
+    });
+
     if (!existing) {
       throw new AppError("Timetable entry not found", 404, "NOT_FOUND");
     }
+
+    await this.handleCancellationAlert(existing);
 
     return prisma.$transaction(async (tx) => {
       await tx.timetableEntry.delete({ where: { id } });

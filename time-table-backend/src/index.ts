@@ -7,6 +7,7 @@ import subjectRoutes from "./routes/subject.routes";
 import teacherRoutes from "./routes/teacher.routes";
 import timetableRoutes from "./routes/timetable.routes";
 import { errorHandler } from "./middleware/errorHandler";
+import { schedulerService } from "./services/scheduler.service";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);

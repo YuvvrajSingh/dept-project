@@ -47,7 +47,11 @@ export default function MasterDataPage() {
   async function handleSave() {
     try {
       if (tab === "teachers") {
-        const payload = { name: formData.name || "", abbreviation: formData.abbreviation || "" };
+        const payload = { 
+          name: formData.name || "", 
+          abbreviation: formData.abbreviation || "",
+          email: formData.email || ""
+        };
         if (editingId) await teacherApi.update(editingId, payload);
         else await teacherApi.create(payload);
       } else if (tab === "subjects") {
@@ -84,7 +88,7 @@ export default function MasterDataPage() {
   function handleEditClick(type: Tab, item: any) {
     setEditingId(item.id);
     if (type === "teachers") {
-      setFormData({ name: item.name, abbreviation: item.abbreviation });
+      setFormData({ name: item.name, abbreviation: item.abbreviation, email: item.email || "" });
     } else if (type === "subjects") {
       setFormData({ code: item.code, name: item.name, type: item.type, creditHours: String(item.creditHours) });
     } else if (type === "rooms" || type === "labs") {
@@ -181,6 +185,7 @@ export default function MasterDataPage() {
                   <>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Code</th>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Full Name</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Email</th>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant text-right">Actions</th>
                   </>
                 )}
@@ -232,6 +237,7 @@ export default function MasterDataPage() {
                           <span className="font-bold text-on-surface text-sm">{t.name}</span>
                         </div>
                       </td>
+                      <td className="px-6 py-5"><span className="text-sm text-on-surface-variant">{t.email || "-"}</span></td>
                       <td className="px-6 py-5 text-right flex justify-end">
                         <button onClick={() => handleEditClick("teachers", t)} className="p-2 text-on-surface-variant hover:text-secondary transition-colors">
                           <span className="material-symbols-outlined text-lg">edit</span>
@@ -343,6 +349,16 @@ export default function MasterDataPage() {
                       onChange={(e) => setFormData({ ...formData, abbreviation: e.target.value })}
                       className="w-full bg-transparent border-0 border-b-2 border-outline-variant focus:ring-0 focus:border-secondary transition-all px-0 pb-2 text-lg font-bold outline-none"
                       placeholder="e.g. JSM"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Email Address</label>
+                    <input
+                      value={formData.email || ""}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      type="email"
+                      className="w-full bg-transparent border-0 border-b-2 border-outline-variant focus:ring-0 focus:border-secondary transition-all px-0 pb-2 text-lg font-bold outline-none"
+                      placeholder="e.g. jane@example.com"
                     />
                   </div>
                 </>

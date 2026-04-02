@@ -44,6 +44,7 @@ model Teacher {
   id               Int               @id @default(autoincrement())
   name             String
   abbreviation     String            @unique
+  email            String?
   teacherSubjects  TeacherSubject[]
   timetableEntries TimetableEntry[]
   labGroupEntries  LabGroupEntry[]
@@ -118,4 +119,15 @@ model LabGroupEntry {
   subject          Subject?       @relation(fields: [subjectId], references: [id])
   lab              Lab            @relation(fields: [labId], references: [id])
   teacher          Teacher        @relation(fields: [teacherId], references: [id])
+}
+
+model NotificationLog {
+  id               Int            @id @default(autoincrement())
+  timetableEntryId Int
+  teacherId        Int
+  type             String         // "REMINDER" or "CANCELLATION"
+  date             DateTime       @db.Date
+  createdAt        DateTime       @default(now())
+
+  @@unique([timetableEntryId, teacherId, type, date])
 }

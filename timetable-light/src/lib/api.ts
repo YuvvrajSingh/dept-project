@@ -21,6 +21,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.message ?? `API error ${res.status}`);
   }
+  if (res.status === 204) {
+    return {} as T;
+  }
   return res.json();
 }
 
@@ -28,9 +31,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const teacherApi = {
   list: () => request<Teacher[]>("/api/teachers"),
   get: (id: number) => request<Teacher>(`/api/teachers/${id}`),
-  create: (data: { name: string; abbreviation: string }) =>
+  create: (data: { name: string; abbreviation: string; email?: string }) =>
     request<Teacher>("/api/teachers", { method: "POST", body: JSON.stringify(data) }),
-  update: (id: number, data: Partial<{ name: string; abbreviation: string }>) =>
+  update: (id: number, data: Partial<{ name: string; abbreviation: string; email: string }>) =>
     request<Teacher>(`/api/teachers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   delete: (id: number) => request(`/api/teachers/${id}`, { method: "DELETE" }),
   getSubjects: (id: number) => request<TeacherSubject[]>(`/api/teachers/${id}/subjects`),
