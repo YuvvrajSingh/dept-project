@@ -53,7 +53,7 @@ export function TimetableGrid({ matrix, loading, filledSlots, onCellClick, onDro
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, day, slot)}
         onClick={() => onCellClick?.(day, slot, data)}
-        className="bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm border-l-4 border-indigo-600 slot-cell cursor-pointer hover:bg-surface-container-high transition-colors"
+        className="bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm border-l-4 border-indigo-600 slot-cell cursor-pointer hover:bg-surface-container-lowest transition-colors"
       >
           <div className="text-[10px] font-bold text-indigo-600 mb-1">THEORY</div>
           <div className="text-sm font-bold text-on-surface leading-tight">{data.subjectCode}</div>
@@ -72,7 +72,7 @@ export function TimetableGrid({ matrix, loading, filledSlots, onCellClick, onDro
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, day, slot)}
         onClick={() => onCellClick?.(day, slot, data)}
-        className="lab-merged-cell m-0.5 p-3 rounded shadow-sm border-l-4 border-tertiary-container bg-surface-container-lowest cursor-pointer hover:bg-surface-container-high transition-colors"
+        className="lab-merged-cell m-0.5 p-3 rounded shadow-sm border-l-4 border-tertiary-container bg-surface-container-lowest cursor-pointer hover:bg-surface-container-lowest transition-colors"
       >
           <div className="text-[10px] font-bold text-on-tertiary-container mb-1 uppercase tracking-tighter">LAB SESSION</div>
           <div className="text-sm font-bold text-on-surface leading-tight">LABS</div>
