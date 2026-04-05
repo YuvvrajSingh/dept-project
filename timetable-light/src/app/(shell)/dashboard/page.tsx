@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { teacherApi, subjectApi, classApi, roomApi, labApi } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { teacherApi, subjectApi, classApi, roomApi, labApi, dashboardApi } from "@/lib/api";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 interface Stats {
   teachers: number;
@@ -13,18 +15,24 @@ interface Stats {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [stats, setStats] = useState<Stats>({ teachers: 0, subjects: 0, classes: 0, rooms: 0, labs: 0 });
+  const [metrics, setMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Drilldown state
+  const [selectedHeatmapCell, setSelectedHeatmapCell] = useState<any>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        const [teachers, subjects, classes, rooms, labs] = await Promise.all([
+        const [teachers, subjects, classes, rooms, labs, dashMetrics] = await Promise.all([
           teacherApi.list().catch(() => []),
           subjectApi.list().catch(() => []),
           classApi.list().catch(() => []),
           roomApi.list().catch(() => []),
           labApi.list().catch(() => []),
+          dashboardApi.getMetrics().catch(() => null)
         ]);
         setStats({
           teachers: teachers.length,
@@ -33,6 +41,7 @@ export default function DashboardPage() {
           rooms: rooms.length,
           labs: labs.length,
         });
+        setMetrics(dashMetrics);
       } finally {
         setLoading(false);
       }
@@ -135,61 +144,161 @@ export default function DashboardPage() {
       </section>
 
       {/* Analytics Row */}
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Scheduling Efficiency */}
-        <div className="flex-grow bg-surface-container-low rounded-xl p-8 border border-outline-variant/10">
+      <div className="flex flex-col xl:flex-row gap-8 mb-10">
+        <div className="flex-1 bg-surface-container-low rounded-xl p-8 border border-outline-variant/10">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-xl font-bold tracking-tight text-on-surface">Scheduling Efficiency</h3>
-              <p className="text-sm text-on-surface-variant">Real-time optimization metrics</p>
+              <p className="text-sm text-on-surface-variant">Class Timetable Completion Progress</p>
             </div>
             <div className="h-10 w-10 flex items-center justify-center rounded-full bg-secondary/10">
               <span className="material-symbols-outlined text-secondary">trending_up</span>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { label: "Resource Utilization", pct: 82, status: "Optimal Range", width: "w-4/5" },
-              { label: "Teacher Distribution", pct: null, status: "Sigma 0.4", width: "w-[65%]", text: "Balanced" },
-              { label: "Room Allocation", pct: null, status: "Critical: Lab 2", width: "w-[92%]", text: "High Demand" },
-            ].map((m) => (
-              <div key={m.label}>
-                <div className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">
-                  {m.label}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {loading ? <div className="h-24 animate-pulse bg-surface-container-highest rounded-lg w-full" /> : metrics?.progress?.map((p: any) => (
+              <div key={p.classSectionId}>
+                <div className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2 flex justify-between">
+                  <span>{p.name}</span>
+                  <span className="text-on-surface">{p.percentage}%</span>
                 </div>
-                <div className="h-1.5 w-full bg-surface-variant rounded-full overflow-hidden">
-                  <div className={`h-full bg-secondary ${m.width} rounded-full`} />
+                <div className="h-2 w-full bg-surface-variant rounded-full overflow-hidden">
+                  <div className="h-full bg-secondary rounded-full transition-all" style={{ width: `${p.percentage}%` }} />
                 </div>
                 <div className="flex justify-between mt-2">
-                  <span className="text-xs font-bold text-on-surface">{m.pct ? `${m.pct}%` : m.text}</span>
-                  <span className="text-[10px] text-on-surface-variant">{m.status}</span>
+                  <span className="text-[10px] text-on-surface-variant">{p.scheduled} / {p.required} Configured Periods</span>
                 </div>
               </div>
             ))}
+            {(!loading && (!metrics?.progress || metrics.progress.length === 0)) && (
+               <p className="text-sm text-on-surface-variant">No classes created yet.</p>
+            )}
           </div>
         </div>
 
-        {/* Conflict Monitor */}
-        <div className="w-full lg:w-80 bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/10">
-          <h3 className="text-sm font-bold text-on-surface mb-4">Conflict Monitor</h3>
-          <div className="space-y-4">
-            {[
-              { color: "bg-error", title: "Overlap Detected", desc: "Room 304 | TUE 10:00 AM" },
-              { color: "bg-green-500", title: "Resolved", desc: "Teacher Dr. Smith Gap Fix" },
-              { color: "bg-secondary", title: "Constraint Applied", desc: "Zero-Gap Rule for Lab sessions" },
-            ].map((item, i) => (
-              <div key={i} className="flex gap-3">
-                <div className={`mt-1 h-2 w-2 rounded-full ${item.color} shrink-0`} />
+        <div className="xl:w-96 bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/10 h-full">
+          <h3 className="text-sm font-bold text-on-surface mb-4 border-b border-outline-variant/10 pb-4 flex justify-between items-center">
+             Live Audit Monitor
+             <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse" />
+          </h3>
+          <div className="space-y-4 max-h-[250px] overflow-y-auto pr-2">
+            {loading ? <p className="text-xs text-on-surface-variant animate-pulse">Loading logs...</p> : metrics?.auditFeed?.map((log: any) => (
+              <div 
+                key={log.id} 
+                className="flex gap-3 p-2 hover:bg-surface-container-high rounded cursor-pointer transition-colors"
+                onClick={() => {
+                   if (log.classSectionId) router.push(`/timetable-builder?classSectionId=${log.classSectionId}`);
+                }}
+              >
+                <div className={`mt-1 h-2 w-2 rounded-full shrink-0 ${log.type === "CONFLICT DETECTED" ? "bg-error" : "bg-indigo-500"}`} />
                 <div>
-                  <p className="text-xs font-bold text-on-surface">{item.title}</p>
-                  <p className="text-[10px] text-on-surface-variant">{item.desc}</p>
+                  <p className={`text-xs font-bold ${log.type === "CONFLICT DETECTED" ? "text-error" : "text-on-surface"}`}>{log.type}</p>
+                  <p className="text-[10px] text-on-surface-variant mt-0.5">{log.message}</p>
+                  <span className="text-[8px] text-on-surface-variant/70 uppercase tracking-widest">{new Date(log.timestamp).toLocaleTimeString()}</span>
                 </div>
               </div>
             ))}
+            {(!loading && (!metrics?.auditFeed || metrics.auditFeed.length === 0)) && (
+               <p className="text-xs text-on-surface-variant">System is stable. No conflicts monitored today.</p>
+            )}
           </div>
-          <button className="w-full mt-6 py-2 text-[10px] font-bold uppercase tracking-widest text-secondary hover:bg-secondary/5 border border-secondary/20 rounded transition-colors">
-            View Full Logs
-          </button>
+        </div>
+      </div>
+      
+      {/* Visual Analytics Row */}
+      <div className="flex flex-col lg:flex-row gap-8 mb-8">
+        <div className="flex-1 bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/10">
+          <h3 className="text-sm font-bold text-on-surface mb-6">Faculty Workload Distribution</h3>
+          <div className="h-64">
+             {loading ? <div className="w-full h-full animate-pulse bg-surface-container-low rounded-lg" /> : (
+                <div style={{ width: '100%', height: '256px' }}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={400} minHeight={250}>
+                    <BarChart data={metrics?.workload || []} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                      <XAxis dataKey="abbreviation" tick={{ fontSize: 11, fill: 'var(--on-surface-variant)' }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: 'var(--on-surface-variant)' }} axisLine={false} tickLine={false} />
+                      <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                      <Bar 
+                        dataKey="hours" 
+                        radius={[4, 4, 0, 0]} 
+                        onClick={(data) => {
+                          if (data.payload?.teacherId) router.push(`/timetable-views?teacherId=${data.payload.teacherId}`);
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                         {(metrics?.workload || []).map((entry: any, index: number) => (
+                            <Cell key={`cell-${index}`} fill={entry.hours > 18 ? '#ef4444' : entry.hours < 8 ? '#f59e0b' : '#6366f1'} />
+                         ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+             )}
+          </div>
+        </div>
+
+        <div className="flex-1 bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/10 flex flex-col relative">
+          <h3 className="text-sm font-bold text-on-surface mb-6">Room Utilization Matrix</h3>
+          <div className="w-full relative flex-1 flex flex-col">
+             {loading ? <div className="w-full h-full animate-pulse bg-surface-container-low rounded-lg" /> : (
+                <div className="grid grid-cols-7 gap-1 h-full">
+                  <div className="text-[9px] font-bold text-on-surface-variant text-center p-2"></div>
+                  {[1,2,3,4,5,6].map(s => <div key={s} className="text-[10px] font-bold text-on-surface-variant text-center py-2">S {s}</div>)}
+                  
+                  {["MON", "TUE", "WED", "THU", "FRI", "SAT"].map((dayName, dIndex) => (
+                     <div key={dayName} className="contents">
+                        <div className="text-[10px] font-bold text-on-surface-variant flex items-center justify-center pr-2">{dayName}</div>
+                        {[1,2,3,4,5,6].map(s => {
+                           const cell = metrics?.heatmap?.find((h: any) => h.day === dIndex + 1 && h.slot === s);
+                           const pct = cell?.percentage || 0;
+                           let bgColor = "bg-surface-container-high hover:bg-surface-container-highest";
+                           let textCol = "text-on-surface";
+                           if (pct > 90) { bgColor = "bg-error/20 hover:bg-error/30"; textCol = "text-error font-bold"; }
+                           else if (pct > 50) { bgColor = "bg-warning/20 hover:bg-warning/30"; textCol = "text-warning font-bold"; }
+                           else if (pct > 0) { bgColor = "bg-indigo-100 hover:bg-indigo-200"; textCol = "text-indigo-700 font-bold"; }
+
+                           return (
+                              <div 
+                                key={`${dIndex}-${s}`} 
+                                className={`h-8 rounded-md flex items-center justify-center text-[10px] cursor-pointer transition-colors ${bgColor} ${textCol}`}
+                                onClick={() => setSelectedHeatmapCell(cell)}
+                              >
+                                 {pct}%
+                              </div>
+                           )
+                        })}
+                     </div>
+                  ))}
+                </div>
+             )}
+          </div>
+          
+          {selectedHeatmapCell && (
+            <div className="absolute inset-0 bg-surface-container-lowest/95 backdrop-blur-sm z-10 rounded-xl p-8 flex flex-col border border-outline-variant/20 shadow-lg">
+               <div className="flex justify-between items-center mb-6">
+                 <div>
+                   <h4 className="text-sm font-bold text-on-surface">Available Rooms</h4>
+                   <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">Day {selectedHeatmapCell.day} | Slot {selectedHeatmapCell.slot}</p>
+                 </div>
+                 <button onClick={() => setSelectedHeatmapCell(null)} className="h-6 w-6 rounded-full bg-surface-container-highest flex items-center justify-center hover:bg-error/10 hover:text-error transition-colors">
+                   <span className="material-symbols-outlined text-[14px]">close</span>
+                 </button>
+               </div>
+               <div className="flex-1 overflow-y-auto">
+                 {selectedHeatmapCell.freeRooms?.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                       {selectedHeatmapCell.freeRooms.map((roomName: string) => (
+                          <span key={roomName} className="px-3 py-1 bg-green-500/10 text-green-700 rounded-lg text-xs font-bold border border-green-500/20">
+                             {roomName}
+                          </span>
+                       ))}
+                    </div>
+                 ) : (
+                    <p className="text-xs text-on-surface-variant italic">No free rooms available for this slot.</p>
+                 )}
+               </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -198,16 +307,8 @@ export default function DashboardPage() {
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-            <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">Engine: Active</span>
+            <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">System Offline? Oh no wait, it's Live!</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[14px] text-on-surface-variant">verified_user</span>
-            <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">Conflicts: Monitored</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">Sync: Live</span>
-          <span className="material-symbols-outlined text-[14px] text-secondary animate-pulse">sync</span>
         </div>
       </footer>
     </>

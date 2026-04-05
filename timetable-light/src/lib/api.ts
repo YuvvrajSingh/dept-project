@@ -122,3 +122,8 @@ export const timetableApi = {
     request<{ success: boolean; auditReport: string[] }>(`/api/timetable/${classSectionId}/generate`, { method: "POST" }),
   getExportPdfUrl: (classSectionId: number) => `${BASE}/api/timetable/${classSectionId}/export/pdf`,
 };
+
+// ── Dashboard ──
+export const dashboardApi = {
+  getMetrics: () => request<any>("/api/dashboard/metrics"),
+};

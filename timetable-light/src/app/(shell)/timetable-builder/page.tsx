@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { classApi, timetableApi, subjectApi, teacherApi, roomApi, labApi } from "@/lib/api";
 import type { ClassSection, TimetableMatrix, Subject, Teacher, Room, Lab, SlotData } from "@/lib/types";
 
@@ -11,7 +12,9 @@ import { PreviewPanel } from "./components/PreviewPanel";
 const BRANCHES = ["CSE", "IT", "AI"];
 const YEARS = [2, 3, 4];
 
-export default function TimetableBuilderPage() {
+function TimetableBuilderInner() {
+  const searchParams = useSearchParams();
+  const initClassId = searchParams.get("classSectionId");
   const [classes, setClasses] = useState<ClassSection[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -58,6 +61,19 @@ export default function TimetableBuilderPage() {
       });
       await Promise.all(tPromises);
       setTeacherMap(tMap);
+
+      if (initClassId) {
+         const classIdNum = parseInt(initClassId, 10);
+         const targetClass = c.find((cls: ClassSection) => cls.id === classIdNum);
+         if (targetClass) {
+            setBranch(targetClass.branch.name);
+            setYear(targetClass.year);
+            setTimeout(() => {
+               setSelectedClass(targetClass.id);
+            }, 100);
+         }
+      }
+
     }
     init();
   }, []);
@@ -319,5 +335,13 @@ export default function TimetableBuilderPage() {
         </div>
       </aside>
     </div>
+  );
+}
+
+export default function TimetableBuilderPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-on-surface-variant animate-pulse">Loading builder environment...</div>}>
+      <TimetableBuilderInner />
+    </Suspense>
   );
 }

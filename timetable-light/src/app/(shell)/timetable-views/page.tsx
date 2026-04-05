@@ -1,13 +1,16 @@
 "use client";
 
-import React, { useEffect, useState, Fragment } from "react";
+import React, { useEffect, useState, Fragment, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { classApi, timetableApi, teacherApi, roomApi } from "@/lib/api";
 import type { ClassSection, TimetableMatrix, Teacher, Room, TimetableEntry, SlotData } from "@/lib/types";
 import { SLOT_TIMES, DAY_SHORT, DAY_LABELS } from "@/lib/types";
 
 type ViewMode = "class" | "teacher" | "room";
 
-export default function TimetableViewsPage() {
+function TimetableViewsInner() {
+  const searchParams = useSearchParams();
+  const initTeacherId = searchParams.get("teacherId");
   const [viewMode, setViewMode] = useState<ViewMode>("class");
   const [classes, setClasses] = useState<ClassSection[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -31,9 +34,17 @@ export default function TimetableViewsPage() {
       setClasses(c);
       setTeachers(t);
       setRooms(r);
+
+      if (initTeacherId) {
+         const tIdNum = parseInt(initTeacherId, 10);
+         if (t.find((x: Teacher) => x.id === tIdNum)) {
+            setViewMode("teacher");
+            loadTeacherView(tIdNum);
+         }
+      }
     }
     init();
-  }, []);
+  }, [initTeacherId]);
 
   async function loadClassView(classId: number) {
     setSelectedClass(classId);
@@ -49,6 +60,9 @@ export default function TimetableViewsPage() {
     }
   }
 
+  // Define this using useCallback or leave it hoisted, but it's fine as is 
+  // since it doesn't depend on much, though we're using it inside useEffect now.
+  // We'll just define it inline above or disable the deps warning since it's safe.
   async function loadTeacherView(teacherId: number) {
     setSelectedTeacher(teacherId);
     setLoading(true);
@@ -288,5 +302,13 @@ export default function TimetableViewsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TimetableViewsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 animate-pulse">Loading views...</div>}>
+      <TimetableViewsInner />
+    </Suspense>
   );
 }
