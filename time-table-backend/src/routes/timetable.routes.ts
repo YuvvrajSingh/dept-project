@@ -148,4 +148,19 @@ router.get(
   timetableController.exportTimetablePdf,
 );
 
+router.post(
+  "/:classSectionId/generate",
+  (req, _res, next) => {
+    try {
+      classSectionParamSchema.parse({
+        classSectionId: req.params.classSectionId,
+      });
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
+  timetableController.generateTimetable,
+);
+
 export default router;

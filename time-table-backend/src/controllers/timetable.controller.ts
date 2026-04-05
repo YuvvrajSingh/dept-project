@@ -81,4 +81,15 @@ export const timetableController = {
       next(error);
     }
   },
+
+  async generateTimetable(req: Request, res: Response, next: NextFunction) {
+    try {
+      const classSectionId = Number(req.params.classSectionId);
+      const { autoSchedulerService } = await import("../services/autoScheduler.service");
+      const result = await autoSchedulerService.generateTimetable(classSectionId);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
 };

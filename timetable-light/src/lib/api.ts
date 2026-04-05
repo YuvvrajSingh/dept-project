@@ -118,5 +118,7 @@ export const timetableApi = {
     request<{ teacher: Teacher, theoryEntries: any[], labEntries: any[] }>(`/api/timetable/teacher/${teacherId}`),
   getRoomOccupancy: (roomId: number) =>
     request<{ room: Room, entries: TimetableEntry[] }>(`/api/timetable/room/${roomId}`),
+  generateTimetable: (classSectionId: number) => 
+    request<{ success: boolean; auditReport: string[] }>(`/api/timetable/${classSectionId}/generate`, { method: "POST" }),
   getExportPdfUrl: (classSectionId: number) => `${BASE}/api/timetable/${classSectionId}/export/pdf`,
 };

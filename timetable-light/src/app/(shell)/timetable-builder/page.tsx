@@ -29,6 +29,7 @@ export default function TimetableBuilderPage() {
   const [loading, setLoading] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{ day: number; slot: number; data: SlotData | null } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [auditReport, setAuditReport] = useState<string[] | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -101,6 +102,8 @@ export default function TimetableBuilderPage() {
   const handleDropEntry = async (sourceDay: number, sourceSlot: number, targetDay: number, targetSlot: number) => {
     if (!matrix || !selectedClass) return;
     
+    // reset selection so weird bug is avoided
+    setAuditReport(null);
     const sourceData = matrix.timetable[String(sourceDay)]?.slots[String(sourceSlot)];
     if (!sourceData || !("entryId" in sourceData)) return;
 
@@ -194,14 +197,58 @@ export default function TimetableBuilderPage() {
           </div>
 
           <button
+            disabled={!selectedClass || loading}
+            onClick={async () => {
+              if (!selectedClass) return;
+              if (!confirm("This will wipe the current timetable for this class and heavily auto-generate a new one. Proceed?")) return;
+              setLoading(true);
+              setAuditReport(null);
+              try {
+                const res = await timetableApi.generateTimetable(selectedClass);
+                setAuditReport(res.auditReport);
+                await loadTimetable(selectedClass);
+              } catch (e: any) {
+                alert("Auto-generate failed: " + e.message);
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="ml-auto h-[42px] px-6 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-bold text-[11px] uppercase tracking-widest rounded-lg hover:opacity-90 disabled:opacity-40 transition-all flex items-center gap-2 shadow-sm"
+          >
+            <span className="material-symbols-outlined text-sm">auto_awesome</span>
+            Magic Generate
+          </button>
+
+          <button
             disabled={!selectedClass}
             onClick={() => selectedClass && loadTimetable(selectedClass)}
-            className="ml-auto h-[42px] px-6 bg-primary-container text-white font-bold text-[11px] uppercase tracking-widest rounded-lg hover:opacity-90 disabled:opacity-40 transition-all flex items-center gap-2 shadow-sm"
+            className="h-[42px] px-6 bg-primary-container text-white font-bold text-[11px] uppercase tracking-widest rounded-lg hover:opacity-90 disabled:opacity-40 transition-all flex items-center gap-2 shadow-sm"
           >
             <span className="material-symbols-outlined text-sm">refresh</span>
             Refresh List
           </button>
         </div>
+
+        {auditReport && (
+          <div className="bg-surface-container-lowest border-2 border-indigo-500/30 rounded-xl p-5 shadow-sm m-6 mt-0">
+            <div className="flex items-center justify-between mb-3 border-b border-outline-variant/10 pb-2">
+              <h3 className="font-bold text-indigo-700 flex items-center gap-2 text-sm uppercase tracking-wider">
+                <span className="material-symbols-outlined">analytics</span>
+                Auto-Generation Report
+              </h3>
+              <button onClick={() => setAuditReport(null)} className="text-on-surface-variant hover:text-on-surface">
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+            <ul className="space-y-1.5 list-disc list-inside text-xs font-mono text-on-surface-variant">
+              {auditReport.map((line, i) => (
+                <li key={i} className={line.startsWith("Warning") ? "text-destructive font-bold" : line.startsWith("Success") ? "text-emerald-600 font-bold" : ""}>
+                  {line}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* The Grid Component */}
         <TimetableGrid 
