@@ -163,4 +163,19 @@ router.post(
   timetableController.generateTimetable,
 );
 
+router.delete(
+  "/:classSectionId/clear",
+  (req, _res, next) => {
+    try {
+      classSectionParamSchema.parse({
+        classSectionId: req.params.classSectionId,
+      });
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
+  timetableController.clearTimetable,
+);
+
 export default router;

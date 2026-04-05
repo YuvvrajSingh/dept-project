@@ -328,37 +328,66 @@ function TimetableBuilderInner() {
             </select>
           </div>
 
-          <button
-            disabled={!selectedClass || loading}
-            onClick={async () => {
-              if (!selectedClass) return;
-              if (!confirm("This will wipe the current timetable for this class and heavily auto-generate a new one. Proceed?")) return;
-              setLoading(true);
-              setAuditReport(null);
-              try {
-                const res = await timetableApi.generateTimetable(selectedClass);
-                setAuditReport(res.auditReport);
-                await loadTimetable(selectedClass);
-              } catch (e: any) {
-                alert("Auto-generate failed: " + e.message);
-              } finally {
-                setLoading(false);
-              }
-            }}
-            className="ml-auto h-[42px] px-6 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-bold text-[11px] uppercase tracking-widest rounded-lg hover:opacity-90 disabled:opacity-40 transition-all flex items-center gap-2 shadow-sm"
-          >
-            <span className="material-symbols-outlined text-sm">auto_awesome</span>
-            Magic Generate
-          </button>
+          <div className="ml-auto flex items-center gap-3 flex-wrap justify-end pl-4">
+            <button
+              disabled={!selectedClass || loading}
+              onClick={async () => {
+                if (!selectedClass) return;
+                if (!confirm("This will wipe the current timetable for this class and heavily auto-generate a new one. Proceed?")) return;
+                setLoading(true);
+                setAuditReport(null);
+                try {
+                  const res = await timetableApi.generateTimetable(selectedClass);
+                  setAuditReport(res.auditReport);
+                  await loadTimetable(selectedClass);
+                } catch (e: any) {
+                  alert("Auto-generate failed: " + e.message);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="h-[42px] px-4 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white font-bold text-[11px] uppercase tracking-widest rounded-lg hover:opacity-90 disabled:opacity-40 transition-all flex items-center gap-2 shadow-sm"
+            >
+              <span className="material-symbols-outlined text-sm">auto_awesome</span>
+              Generate
+            </button>
 
-          <button
-            disabled={!selectedClass}
-            onClick={() => selectedClass && loadTimetable(selectedClass)}
-            className="h-[42px] px-6 bg-primary-container text-white font-bold text-[11px] uppercase tracking-widest rounded-lg hover:opacity-90 disabled:opacity-40 transition-all flex items-center gap-2 shadow-sm"
-          >
-            <span className="material-symbols-outlined text-sm">refresh</span>
-            Refresh List
-          </button>
+            <button
+              disabled={!selectedClass || loading || (filledSlots === 0 && matrix != null)}
+              onClick={async () => {
+                if (!selectedClass) return;
+                if (!confirm("Are you sure you want to completely erase the timetable for this class?")) return;
+                setLoading(true);
+                setAuditReport(null);
+                try {
+                  await timetableApi.clearTimetable(selectedClass);
+                  // Clear out frontend grid state immediately
+                  setMatrix(null);
+                  await Promise.all([
+                    timetableApi.getOccupancy(selectedClass).then(occ => setOccupancyMap(occ)).catch(() => {}),
+                    loadTimetable(selectedClass)
+                  ]);
+                } catch (e: any) {
+                  alert("Failed to clear timetable: " + e.message);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="h-[42px] px-4 bg-destructive text-destructive-foreground font-bold text-[11px] uppercase tracking-widest rounded-lg hover:opacity-90 disabled:opacity-40 transition-all flex items-center gap-2 shadow-sm"
+            >
+              <span className="material-symbols-outlined text-sm">delete_sweep</span>
+              Clear
+            </button>
+
+            <button
+              disabled={!selectedClass}
+              onClick={() => selectedClass && loadTimetable(selectedClass)}
+              className="h-[42px] px-4 bg-primary-container text-white font-bold text-[11px] uppercase tracking-widest rounded-lg hover:opacity-90 disabled:opacity-40 transition-all flex items-center gap-2 shadow-sm"
+            >
+              <span className="material-symbols-outlined text-sm">refresh</span>
+              Refresh
+            </button>
+          </div>
         </div>
 
         {auditReport && (

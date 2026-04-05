@@ -297,7 +297,7 @@ export function EntryForm({
                   className={`w-full text-[11px] font-bold bg-white border-2 ${issueFields.includes("labSubject") ? "border-destructive" : "border-transparent"} rounded py-1.5 outline-none`}
                 >
                   <option value="">Subject...</option>
-                  {subjectsForType.map(s => <option key={s.id} value={s.id}>{s.code}</option>)}
+                  {subjectsForType.map(s => <option key={s.id} value={s.id}>{s.code} - {s.name}</option>)}
                 </select>
                 
                 <div className="grid grid-cols-2 gap-2">
@@ -308,7 +308,7 @@ export function EntryForm({
                     className={`w-full text-[11px] font-bold bg-white border-2 ${issueFields.includes("labTeacher") ? "border-destructive" : "border-transparent"} rounded py-1.5 outline-none disabled:opacity-50`}
                   >
                     <option value="">Teacher...</option>
-                    {getTeachersForSubject(g.subjectId).map(t => <option key={t.id} value={t.id}>{t.abbreviation}</option>)}
+                    {getTeachersForSubject(g.subjectId).map(t => <option key={t.id} value={t.id}>{t.abbreviation} - {t.name}</option>)}
                   </select>
                   
                   <select 

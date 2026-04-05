@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { EntryType } from "@prisma/client";
+import { prisma } from "../prisma/client";
 import { timetableService } from "../services/timetable.service";
 import { pdfService } from "../services/pdf.service";
 
@@ -88,6 +89,18 @@ export const timetableController = {
       const { autoSchedulerService } = await import("../services/autoScheduler.service");
       const result = await autoSchedulerService.generateTimetable(classSectionId);
       res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async clearTimetable(req: Request, res: Response, next: NextFunction) {
+    try {
+      const classSectionId = Number(req.params.classSectionId);
+      await prisma.timetableEntry.deleteMany({
+         where: { classSectionId }
+      });
+      res.status(200).json({ success: true });
     } catch (error) {
       next(error);
     }
