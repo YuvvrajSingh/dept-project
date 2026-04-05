@@ -118,6 +118,11 @@ router.get(
   timetableController.getRoomOccupancy,
 );
 
+router.delete(
+  "/clear-all",
+  timetableController.clearGlobalTimetable
+);
+
 router.get(
   "/:classSectionId",
   (req, _res, next) => {

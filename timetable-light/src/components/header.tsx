@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 const routeTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -8,6 +9,7 @@ const routeTitles: Record<string, string> = {
   "/assignments": "Assignments // DEPT TIMETABLE",
   "/timetable-builder": "CSE DEPT TIMETABLE",
   "/timetable-views": "Timetable Views",
+  "/settings": "Department Settings",
 };
 
 export default function Header() {
@@ -44,9 +46,9 @@ export default function Header() {
           <button className="p-2 text-slate-600 hover:text-indigo-500 transition-all hover:translate-y-[-1px]">
             <span className="material-symbols-outlined">notifications</span>
           </button>
-          <button className="p-2 text-slate-600 hover:text-indigo-500 transition-all hover:translate-y-[-1px]">
+          <Link href="/settings" className="p-2 text-slate-600 hover:text-indigo-500 transition-all hover:translate-y-[-1px]">
             <span className="material-symbols-outlined">settings</span>
-          </button>
+          </Link>
           <div className="h-8 w-8 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant/20 ml-2 flex items-center justify-center text-xs font-bold text-on-surface-variant">
             HD
           </div>

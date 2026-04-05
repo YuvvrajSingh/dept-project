@@ -122,6 +122,8 @@ export const timetableApi = {
     request<{ success: boolean; auditReport: string[] }>(`/api/timetable/${classSectionId}/generate`, { method: "POST" }),
   clearTimetable: (classSectionId: number) => 
     request<{ success: boolean }>(`/api/timetable/${classSectionId}/clear`, { method: "DELETE" }),
+  clearGlobalTimetable: () => 
+    request<{ success: boolean }>('/api/timetable/clear-all', { method: "DELETE" }),
   getExportPdfUrl: (classSectionId: number) => `${BASE}/api/timetable/${classSectionId}/export/pdf`,
   getOccupancy: (excludeClassSectionId?: number) => {
     const url = excludeClassSectionId ? `/api/timetable/occupancy?excludeClassSectionId=${excludeClassSectionId}` : "/api/timetable/occupancy";

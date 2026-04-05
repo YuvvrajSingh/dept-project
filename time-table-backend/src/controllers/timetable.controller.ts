@@ -105,4 +105,13 @@ export const timetableController = {
       next(error);
     }
   },
+
+  async clearGlobalTimetable(req: Request, res: Response, next: NextFunction) {
+    try {
+      await prisma.timetableEntry.deleteMany({});
+      res.status(200).json({ success: true });
+    } catch (error) {
+       next(error);
+    }
+  },
 };
