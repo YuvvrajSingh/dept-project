@@ -390,26 +390,7 @@ function TimetableBuilderInner() {
           </div>
         </div>
 
-        {auditReport && (
-          <div className="bg-surface-container-lowest border-2 border-indigo-500/30 rounded-xl p-5 shadow-sm m-6 mt-0">
-            <div className="flex items-center justify-between mb-3 border-b border-outline-variant/10 pb-2">
-              <h3 className="font-bold text-indigo-700 flex items-center gap-2 text-sm uppercase tracking-wider">
-                <span className="material-symbols-outlined">analytics</span>
-                Auto-Generation Report
-              </h3>
-              <button onClick={() => setAuditReport(null)} className="text-on-surface-variant hover:text-on-surface">
-                <span className="material-symbols-outlined text-sm">close</span>
-              </button>
-            </div>
-            <ul className="space-y-1.5 list-disc list-inside text-xs font-mono text-on-surface-variant">
-              {auditReport.map((line, i) => (
-                <li key={i} className={line.startsWith("Warning") ? "text-destructive font-bold" : line.startsWith("Success") ? "text-emerald-600 font-bold" : ""}>
-                  {line}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+
 
         {/* The Grid Component */}
         <TimetableGrid 
@@ -474,53 +455,7 @@ function TimetableBuilderInner() {
             />
           )}
 
-          {!selectedCell && unassignedSubjects.length > 0 && selectedClass && (
-             <div className="flex-1 flex flex-col pt-6">
-                <h3 className="font-bold text-sm text-on-surface mb-4 uppercase tracking-wider flex items-center gap-2">
-                   <span className="material-symbols-outlined text-[16px] text-tertiary">inventory_2</span>
-                   Unassigned Subjects
-                </h3>
-                <div className="space-y-3 overflow-y-auto pr-2 pb-20">
-                   {unassignedSubjects.map(s => (
-                      <div 
-                         key={s.id} 
-                         draggable
-                         onDragStart={(e) => {
-                            e.dataTransfer.setData("application/json-subject", JSON.stringify(s.id));
-                            setDraggedSubject(s);
-                         }}
-                         onDragEnd={() => setDraggedSubject(null)}
-                         className="flex items-center justify-between p-3 bg-surface-container-low border border-outline-variant/30 rounded-lg shadow-sm hover:border-tertiary cursor-grab active:cursor-grabbing hover:shadow-md transition-all"
-                      >
-                         <div>
-                            <div className="font-bold text-sm text-on-surface leading-tight">{s.code}</div>
-                            <div className="text-[10px] text-on-surface-variant font-medium mt-0.5">{s.name}</div>
-                            <div className="text-[9px] font-bold tracking-widest text-on-tertiary-container mt-2">
-                               {s.type === 'THEORY' ? 'THEORY' : 'LAB'}
-                            </div>
-                         </div>
-                         <div className="flex flex-col items-end">
-                            <div className="bg-tertiary-container text-on-tertiary-container text-xs font-black px-2 py-1 rounded-md">
-                               {s.required - s.assigned} left
-                            </div>
-                         </div>
-                      </div>
-                   ))}
-                </div>
-             </div>
-          )}
 
-          {!selectedCell && unassignedSubjects.length === 0 && selectedClass && (
-             <div className="flex flex-col items-center justify-center flex-1 text-center border-2 border-dashed border-outline-variant/30 rounded-xl bg-surface-container-lowest/50 text-on-surface-variant mt-6">
-               <span className="material-symbols-outlined text-4xl mb-4 text-emerald-500 opacity-80">task_alt</span>
-               <div className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-2">
-                 All Caught Up
-               </div>
-               <div className="text-[10px] font-medium mx-8 opacity-70">
-                 Every required subject and lab for this class section has been successfully assigned to the timetable.
-               </div>
-             </div>
-          )}
 
           {!selectedCell && !selectedClass && (
              <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-outline-variant/30 rounded-xl bg-surface-container-lowest/50 text-on-surface-variant">
