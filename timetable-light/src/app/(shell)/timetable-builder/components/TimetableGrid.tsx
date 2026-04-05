@@ -1,26 +1,72 @@
-import React, { Fragment } from "react";
-import type { TimetableMatrix, SlotData } from "@/lib/types";
+import React, { Fragment, useState } from "react";
+import type { TimetableMatrix, SlotData, Subject, Room } from "@/lib/types";
 import { SLOT_TIMES, DAY_SHORT } from "@/lib/types";
 
 interface TimetableGridProps {
   matrix: TimetableMatrix | null;
   loading: boolean;
   filledSlots: number;
+  draggedSubject?: Subject | null;
+  occupancyMap?: any;
+  teacherMap?: Record<number, number[]>;
+  rooms?: Room[];
+  labs?: any[];
   onCellClick?: (day: number, slot: number, data: SlotData) => void;
   onDropEntry?: (sourceDay: number, sourceSlot: number, targetDay: number, targetSlot: number) => void;
+  onDropNewSubject?: (subject: Subject, targetDay: number, targetSlot: number) => void;
+  onDragSubjectEnd?: () => void;
 }
 
-export function TimetableGrid({ matrix, loading, filledSlots, onCellClick, onDropEntry }: TimetableGridProps) {
+export function TimetableGrid({ 
+  matrix, 
+  loading, 
+  filledSlots, 
+  draggedSubject,
+  occupancyMap,
+  teacherMap,
+  rooms,
+  labs,
+  onCellClick, 
+  onDropEntry,
+  onDropNewSubject,
+  onDragSubjectEnd
+}: TimetableGridProps) {
+  const [dragHover, setDragHover] = useState<{day: number, slot: number} | null>(null);
+  const [draggedGridItem, setDraggedGridItem] = useState<{day: number, slot: number, data: SlotData} | null>(null);
+
   const handleDragStart = (e: React.DragEvent, day: number, slot: number) => {
     e.dataTransfer.setData("application/json", JSON.stringify({ day, slot }));
+    setDraggedGridItem({ day, slot, data: matrix?.timetable[day]?.slots[slot] || null });
+  };
+  
+  const handleDragGridEnd = () => {
+    setDraggedGridItem(null);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, day: number, slot: number) => {
     e.preventDefault(); // necessary to allow dropping
+    if (!dragHover || dragHover.day !== day || dragHover.slot !== slot) {
+       setDragHover({ day, slot });
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent, day: number, slot: number) => {
+    e.preventDefault();
+    setDragHover(null);
   };
 
   const handleDrop = (e: React.DragEvent, targetDay: number, targetSlot: number) => {
     e.preventDefault();
+    setDragHover(null);
+    setDraggedGridItem(null);
+    onDragSubjectEnd?.(); // cleanup parent state if it was a sidebar drop
+
+    const newSubjectIdStr = e.dataTransfer.getData("application/json-subject");
+    if (newSubjectIdStr && draggedSubject) {
+       onDropNewSubject?.(draggedSubject, targetDay, targetSlot);
+       return;
+    }
+
     const dataStr = e.dataTransfer.getData("application/json");
     if (!dataStr) return;
     
@@ -32,14 +78,86 @@ export function TimetableGrid({ matrix, loading, filledSlots, onCellClick, onDro
       // ignore parse errors
     }
   };
+
+  // Live Collision logic:
+  const getValidationClasses = (day: number, slot: number) => {
+     if (!dragHover || dragHover.day !== day || dragHover.slot !== slot) return "";
+     if (!draggedSubject && !draggedGridItem) return "";
+     
+     // Evaluate collision
+     let isBusy = false;
+     
+     // 0. Check if target cell in current grid is already occupied
+     const targetCell = matrix?.timetable[day]?.slots[slot];
+     if (targetCell && targetCell.type !== "LAB_CONTINUATION") {
+        if (!(draggedGridItem && draggedGridItem.day === day && draggedGridItem.slot === slot)) {
+           // It's occupied by another subject in our own grid
+           isBusy = true;
+        }
+     }
+     
+     if (!isBusy) {
+       if (draggedSubject) {
+       // 1. Check Teacher availability for sidebar item
+       const possibleTeacherIds = Object.keys(teacherMap || {}).filter(tId => teacherMap![Number(tId)].includes(draggedSubject.id));
+       
+       if (possibleTeacherIds.length === 0) {
+          isBusy = true;
+       } else {
+          let allBusy = true;
+          for (const tId of possibleTeacherIds) {
+             const busySlotsForDay = occupancyMap?.teachers?.[Number(tId)]?.[day] || [];
+             const slotsToCheck = draggedSubject.type === "LAB" ? [slot, slot + 1] : [slot];
+             const overlaps = slotsToCheck.some(s => busySlotsForDay.includes(s));
+             if (!overlaps) {
+                allBusy = false; 
+                break;
+             }
+          }
+          if (allBusy) isBusy = true;
+       }
+       
+       // 2. We don't have a reliable room choice for a new Unassigned Subject since they just pick the first available. 
+       // If ALL rooms (or labs) are strictly busy, then we'd flag it. But this is rare.
+     } else if (draggedGridItem && draggedGridItem.data) {
+       const data = draggedGridItem.data;
+       if (data.type === "THEORY") {
+          if (data.teacherId) {
+             const overlaps = occupancyMap?.teachers?.[data.teacherId]?.[day]?.includes(slot);
+             if (overlaps) isBusy = true;
+          }
+          if (data.roomId && !isBusy) {
+             const overlapsRoom = occupancyMap?.rooms?.[data.roomId]?.[day]?.includes(slot);
+             if (overlapsRoom) isBusy = true;
+          }
+       } else if (data.type === "LAB") {
+          const slotsToCheck = [slot, slot + 1];
+          Object.values(data.groups).forEach(g => {
+             const overlapsT = slotsToCheck.some(s => occupancyMap?.teachers?.[g.teacherId]?.[day]?.includes(s));
+             const overlapsL = slotsToCheck.some(s => occupancyMap?.labs?.[g.labId]?.[day]?.includes(s));
+             if (overlapsT || overlapsL) isBusy = true;
+          });
+       }
+     }
+     }
+
+     if (isBusy) {
+        return "border-2 border-red-500 bg-red-500/20 !opacity-100 ring-2 ring-red-500/50 cursor-not-allowed";
+     } else {
+        return "border-2 border-green-500 bg-green-500/20 !opacity-100 ring-2 ring-green-500/50 scale-[1.02] transition-transform";
+     }
+  };
   function renderSlotCell(data: SlotData, day: number, slot: number) {
+    const valClass = getValidationClasses(day, slot);
+
     if (!data) {
       return (
       <div 
-        onDragOver={handleDragOver}
+        onDragOver={(e) => handleDragOver(e, day, slot)}
+        onDragLeave={(e) => handleDragLeave(e, day, slot)}
         onDrop={(e) => handleDrop(e, day, slot)}
         onClick={() => onCellClick?.(day, slot, null)}
-        className="bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm opacity-20 slot-cell cursor-pointer hover:bg-surface-container-high hover:opacity-100 transition-all border border-transparent hover:border-outline" 
+        className={`bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm opacity-20 slot-cell cursor-pointer hover:bg-surface-container-high hover:opacity-100 transition-all border border-transparent hover:border-outline ${valClass}`} 
       />
       );
     }
@@ -50,10 +168,12 @@ export function TimetableGrid({ matrix, loading, filledSlots, onCellClick, onDro
       <div 
         draggable
         onDragStart={(e) => handleDragStart(e, day, slot)}
-        onDragOver={handleDragOver}
+        onDragEnd={handleDragGridEnd}
+        onDragOver={(e) => handleDragOver(e, day, slot)}
+        onDragLeave={(e) => handleDragLeave(e, day, slot)}
         onDrop={(e) => handleDrop(e, day, slot)}
         onClick={() => onCellClick?.(day, slot, data)}
-        className="bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm border-l-4 border-indigo-600 slot-cell cursor-pointer hover:bg-surface-container-lowest transition-colors"
+        className={`bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm border-l-4 border-indigo-600 slot-cell cursor-pointer hover:bg-surface-container-lowest transition-colors ${valClass}`}
       >
           <div className="text-[10px] font-bold text-indigo-600 mb-1">THEORY</div>
           <div className="text-sm font-bold text-on-surface leading-tight">{data.subjectCode}</div>
@@ -69,10 +189,12 @@ export function TimetableGrid({ matrix, loading, filledSlots, onCellClick, onDro
       <div 
         draggable
         onDragStart={(e) => handleDragStart(e, day, slot)}
-        onDragOver={handleDragOver}
+        onDragEnd={handleDragGridEnd}
+        onDragOver={(e) => handleDragOver(e, day, slot)}
+        onDragLeave={(e) => handleDragLeave(e, day, slot)}
         onDrop={(e) => handleDrop(e, day, slot)}
         onClick={() => onCellClick?.(day, slot, data)}
-        className="lab-merged-cell m-0.5 p-3 rounded shadow-sm border-l-4 border-tertiary-container bg-surface-container-lowest cursor-pointer hover:bg-surface-container-lowest transition-colors"
+        className={`lab-merged-cell m-0.5 p-3 rounded shadow-sm border-l-4 border-tertiary-container bg-surface-container-lowest cursor-pointer hover:bg-surface-container-lowest transition-colors ${valClass}`}
       >
           <div className="text-[10px] font-bold text-on-tertiary-container mb-1 uppercase tracking-tighter">LAB SESSION</div>
           <div className="text-sm font-bold text-on-surface leading-tight">LABS</div>
@@ -156,9 +278,10 @@ export function TimetableGrid({ matrix, loading, filledSlots, onCellClick, onDro
                     return (
                       <div 
                         key={`${day}-${slot}`} 
-                        onDragOver={handleDragOver}
+                        onDragOver={(e) => handleDragOver(e, day, slot)}
+                        onDragLeave={(e) => handleDragLeave(e, day, slot)}
                         onDrop={(e) => handleDrop(e, day, slot)}
-                        className="slot-cell"
+                        className={`slot-cell ${getValidationClasses(day, slot)}`}
                       />
                     );
                   }

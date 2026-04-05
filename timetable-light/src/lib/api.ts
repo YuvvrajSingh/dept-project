@@ -121,6 +121,10 @@ export const timetableApi = {
   generateTimetable: (classSectionId: number) => 
     request<{ success: boolean; auditReport: string[] }>(`/api/timetable/${classSectionId}/generate`, { method: "POST" }),
   getExportPdfUrl: (classSectionId: number) => `${BASE}/api/timetable/${classSectionId}/export/pdf`,
+  getOccupancy: (excludeClassSectionId?: number) => {
+    const url = excludeClassSectionId ? `/api/timetable/occupancy?excludeClassSectionId=${excludeClassSectionId}` : "/api/timetable/occupancy";
+    return request<{ teachers: Record<number, Record<number, number[]>>, rooms: Record<number, Record<number, number[]>>, labs: Record<number, Record<number, number[]>> }>(url);
+  },
 };
 
 // ── Dashboard ──

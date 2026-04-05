@@ -26,7 +26,9 @@ function TimetableBuilderInner() {
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
 
   const [matrix, setMatrix] = useState<TimetableMatrix | null>(null);
+  const [occupancyMap, setOccupancyMap] = useState<any>(null);
   const [classSubjects, setClassSubjects] = useState<Subject[]>([]);
+  const [draggedSubject, setDraggedSubject] = useState<Subject | null>(null);
   const [teacherMap, setTeacherMap] = useState<Record<number, number[]>>({});
 
   const [loading, setLoading] = useState(false);
@@ -36,18 +38,20 @@ function TimetableBuilderInner() {
 
   useEffect(() => {
     async function init() {
-      const [c, s, t, r, l] = await Promise.all([
+      const [c, s, t, r, l, occ] = await Promise.all([
         classApi.list().catch(() => []),
         subjectApi.list().catch(() => []), 
         teacherApi.list().catch(() => []),
         roomApi.list().catch(() => []),
         labApi.list().catch(() => []),
+        timetableApi.getOccupancy().catch(() => null),
       ]);
       setClasses(c);
       setSubjects(s);
       setTeachers(t);
       setRooms(r);
       setLabs(l);
+      if (occ) setOccupancyMap(occ);
 
       // Pre-compute teacher-subject map
       const tMap: Record<number, number[]> = {};
@@ -82,12 +86,31 @@ function TimetableBuilderInner() {
     classes.filter((c) => c.branch?.name === branch && c.year === year),
   [classes, branch, year]);
 
+  const handleClassSelection = async (classId: number) => {
+    if (isNaN(classId)) {
+      setSelectedClass(null);
+      setMatrix(null);
+      return;
+    }
+    setSelectedClass(classId);
+    await loadTimetable(classId);
+  };
+
   useEffect(() => {
     setSelectedClass(null);
     setMatrix(null);
     setSelectedCell(null);
     setIsEditing(false);
   }, [branch, year]);
+
+  // Load occupancy map whenever selected class changes
+  useEffect(() => {
+    if (selectedClass) {
+       timetableApi.getOccupancy(selectedClass).then(occ => setOccupancyMap(occ)).catch(() => {});
+    } else {
+       timetableApi.getOccupancy().then(occ => setOccupancyMap(occ)).catch(() => {});
+    }
+  }, [selectedClass]);
 
   async function loadTimetable(classId: number) {
     setLoading(true);
@@ -141,31 +164,128 @@ function TimetableBuilderInner() {
           teacherId: sourceData.teacherId!,
           roomId: sourceData.roomId!,
         };
-        await timetableApi.updateEntry(sourceData.entryId, payload);
+        await timetableApi.updateEntry(sourceData.entryId as number, payload);
       } else if (sourceData.type === "LAB") {
         const payload = {
           classSectionId: matrix.classSectionId,
           day: targetDay,
           slotStart: targetSlot,
           entryType: "LAB" as const,
-          subjectId: Object.values(sourceData.groups)[0]?.subjectId || 0,
-          labGroups: Object.entries(sourceData.groups).map(([groupName, info]) => ({
-            groupName,
-            subjectId: info.subjectId || 0,
+          subjectId: Object.values(sourceData.groups)[0]?.subjectId as number,
+          labGroups: Object.entries(sourceData.groups).map(([g, info]) => ({
+            groupName: g,
             labId: info.labId,
             teacherId: info.teacherId,
           })),
         };
-        await timetableApi.updateEntry(sourceData.entryId, payload);
+        await timetableApi.updateEntry(sourceData.entryId as number, payload);
       }
       
-      await loadTimetable(selectedClass);
+      await Promise.all([
+         timetableApi.getOccupancy(selectedClass).then(occ => setOccupancyMap(occ)).catch(() => {}),
+         loadTimetable(selectedClass)
+      ]);
     } catch (e: any) {
-      alert("Scheduling Conflict: " + (e.message || "Failed to move entry"));
+      alert(e.message || "Failed to move entry");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleDropNewSubject = async (subject: Subject, day: number, slot: number) => {
+    if (!matrix || !selectedClass) return;
+    setAuditReport(null);
+
+    // Pick first available teacher who can teach this
+    const possibleTeachers = teachers.filter(t => teacherMap[t.id]?.includes(subject.id));
+    let selectedTeacherId = possibleTeachers.find(t => !occupancyMap?.teachers?.[t.id]?.[day]?.includes(slot))?.id;
+    if (!selectedTeacherId && possibleTeachers.length > 0) selectedTeacherId = possibleTeachers[0].id; // fallback to conflict
+
+    setLoading(true);
+    try {
+      if (subject.type === "THEORY") {
+         // Pick first available room
+         let fallbackRoomId = rooms.find(r => !occupancyMap?.rooms?.[r.id]?.[day]?.includes(slot))?.id;
+         if (!fallbackRoomId && rooms.length > 0) fallbackRoomId = rooms[0].id; // fallback
+         
+         await timetableApi.createEntry({
+            classSectionId: selectedClass,
+            day: day,
+            slotStart: slot,
+            entryType: "THEORY",
+            subjectId: subject.id,
+            teacherId: selectedTeacherId,
+            roomId: fallbackRoomId,
+         });
+      } else if (subject.type === "LAB") {
+         // Pick first available lab
+         let fallbackLabId = labs.find(l => {
+            const lBusy = occupancyMap?.labs?.[l.id]?.[day] || [];
+            return !lBusy.includes(slot) && !lBusy.includes(slot + 1);
+         })?.id;
+         if (!fallbackLabId && labs.length > 0) fallbackLabId = labs[0].id;
+
+         await timetableApi.createEntry({
+            classSectionId: selectedClass,
+            day: day,
+            slotStart: slot,
+            entryType: "LAB",
+            subjectId: subject.id,
+            labGroups: [
+               { groupName: "A1", labId: fallbackLabId!, teacherId: selectedTeacherId! }
+            ]
+         });
+      }
+      // Re-fetch occupancy and timetable
+      await Promise.all([
+        timetableApi.getOccupancy().then(occ => setOccupancyMap(occ)).catch(() => {}),
+        loadTimetable(selectedClass)
+      ]);
+    } catch (e: any) {
+      alert(e.message || "Failed to schedule subject");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate Unassigned Subjects
+  const unassignedSubjects = useMemo(() => {
+     if (!matrix) return [];
+     const required = new Map<number, number>();
+     const assigned = new Map<number, number>();
+
+     // initialize required
+     classSubjects.forEach(s => {
+        required.set(s.id, s.creditHours);
+        assigned.set(s.id, 0);
+     });
+
+     // calculate assigned
+     Object.values(matrix.timetable).forEach(day => {
+        Object.values(day.slots).forEach(slot => {
+           if (slot && slot.type !== "LAB_CONTINUATION") {
+              let sId: number | null = null;
+              if (slot.type === "THEORY") sId = slot.subjectId;
+              else if (slot.type === "LAB") sId = Object.values(slot.groups)[0]?.subjectId || null;
+
+              if (sId) {
+                 const current = assigned.get(sId) || 0;
+                 assigned.set(sId, current + 1);
+              }
+           }
+        });
+     });
+
+     return classSubjects.filter(s => {
+        const req = required.get(s.id) || 0;
+        const asg = assigned.get(s.id) || 0;
+        return asg < req;
+     }).map(s => ({
+        ...s,
+        assigned: assigned.get(s.id) || 0,
+        required: required.get(s.id) || 0
+     }));
+  }, [matrix, classSubjects]);
 
   return (
     <div className="flex gap-8">
@@ -197,12 +317,8 @@ function TimetableBuilderInner() {
           <div className="space-y-2">
             <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Class Section</label>
             <select
-              value={selectedClass ?? ""}
-              onChange={(e) => {
-                const id = parseInt(e.target.value);
-                setSelectedClass(id);
-                if (id) loadTimetable(id);
-              }}
+              value={selectedClass === null ? "" : selectedClass}
+              onChange={(e) => handleClassSelection(parseInt(e.target.value, 10))}
               className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 pr-10 text-sm font-bold w-48 outline-none"
             >
               <option value="">Select...</option>
@@ -271,7 +387,14 @@ function TimetableBuilderInner() {
           matrix={matrix} 
           loading={loading} 
           filledSlots={filledSlots}
+          draggedSubject={draggedSubject}
+          occupancyMap={occupancyMap}
+          teacherMap={teacherMap}
+          rooms={rooms}
+          labs={labs}
+          onDragSubjectEnd={() => setDraggedSubject(null)}
           onDropEntry={handleDropEntry}
+          onDropNewSubject={handleDropNewSubject}
           onCellClick={(day, slot, data) => {
             setSelectedCell({ day, slot, data });
             setIsEditing(false); // reset edit mode if clicking a new cell
@@ -283,7 +406,7 @@ function TimetableBuilderInner() {
       <aside className="w-80 shrink-0">
         <div className="sticky top-24 space-y-4">
           
-          {selectedCell && !isEditing && selectedCell.data && (
+          {selectedCell && !isEditing && selectedCell.data && selectedClass && (
             <PreviewPanel 
               day={selectedCell.day}
               slot={selectedCell.slot}
@@ -291,8 +414,9 @@ function TimetableBuilderInner() {
               onClose={() => setSelectedCell(null)}
               onEdit={() => setIsEditing(true)}
               onDeleteSuccess={() => {
-                setSelectedCell(null);
-                if (selectedClass) loadTimetable(selectedClass);
+                 setSelectedCell(null);
+                 timetableApi.getOccupancy(selectedClass).then(occ => setOccupancyMap(occ)).catch(() => {});
+                 loadTimetable(selectedClass);
               }}
             />
           )}
@@ -311,6 +435,7 @@ function TimetableBuilderInner() {
               onSuccess={() => {
                 setSelectedCell(null);
                 setIsEditing(false);
+                timetableApi.getOccupancy().then(occ => setOccupancyMap(occ)).catch(() => {});
                 loadTimetable(selectedClass);
               }}
               onClose={() => {
@@ -320,14 +445,62 @@ function TimetableBuilderInner() {
             />
           )}
 
-          {!selectedCell && (
+          {!selectedCell && unassignedSubjects.length > 0 && selectedClass && (
+             <div className="flex-1 flex flex-col pt-6">
+                <h3 className="font-bold text-sm text-on-surface mb-4 uppercase tracking-wider flex items-center gap-2">
+                   <span className="material-symbols-outlined text-[16px] text-tertiary">inventory_2</span>
+                   Unassigned Subjects
+                </h3>
+                <div className="space-y-3 overflow-y-auto pr-2 pb-20">
+                   {unassignedSubjects.map(s => (
+                      <div 
+                         key={s.id} 
+                         draggable
+                         onDragStart={(e) => {
+                            e.dataTransfer.setData("application/json-subject", JSON.stringify(s.id));
+                            setDraggedSubject(s);
+                         }}
+                         onDragEnd={() => setDraggedSubject(null)}
+                         className="flex items-center justify-between p-3 bg-surface-container-low border border-outline-variant/30 rounded-lg shadow-sm hover:border-tertiary cursor-grab active:cursor-grabbing hover:shadow-md transition-all"
+                      >
+                         <div>
+                            <div className="font-bold text-sm text-on-surface leading-tight">{s.code}</div>
+                            <div className="text-[10px] text-on-surface-variant font-medium mt-0.5">{s.name}</div>
+                            <div className="text-[9px] font-bold tracking-widest text-on-tertiary-container mt-2">
+                               {s.type === 'THEORY' ? 'THEORY' : 'LAB'}
+                            </div>
+                         </div>
+                         <div className="flex flex-col items-end">
+                            <div className="bg-tertiary-container text-on-tertiary-container text-xs font-black px-2 py-1 rounded-md">
+                               {s.required - s.assigned} left
+                            </div>
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             </div>
+          )}
+
+          {!selectedCell && unassignedSubjects.length === 0 && selectedClass && (
+             <div className="flex flex-col items-center justify-center flex-1 text-center border-2 border-dashed border-outline-variant/30 rounded-xl bg-surface-container-lowest/50 text-on-surface-variant mt-6">
+               <span className="material-symbols-outlined text-4xl mb-4 text-emerald-500 opacity-80">task_alt</span>
+               <div className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-2">
+                 All Caught Up
+               </div>
+               <div className="text-[10px] font-medium mx-8 opacity-70">
+                 Every required subject and lab for this class section has been successfully assigned to the timetable.
+               </div>
+             </div>
+          )}
+
+          {!selectedCell && !selectedClass && (
              <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-outline-variant/30 rounded-xl bg-surface-container-lowest/50 text-on-surface-variant">
                <span className="material-symbols-outlined text-4xl mb-4 opacity-50">ads_click</span>
                <div className="text-[10px] font-bold uppercase tracking-widest opacity-80">
-                 Select a time slot
+                 Select a class
                </div>
                <div className="text-xs font-medium mt-1 opacity-60 px-6">
-                 Click on any empty cell to schedule a class, or a filled cell to view details.
+                 Choose a Class Section from the top bar to begin dragging and assigning subjects to the scheduling grid.
                </div>
              </div>
           )}
