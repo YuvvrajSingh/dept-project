@@ -168,7 +168,7 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
     throw new AppError("Class section already has an entry at this slot", 409, "CONFLICT");
   }
 
-  const teacherConflict = await db.timetableEntry.findFirst({
+  const theoryTeacherConflict = await db.timetableEntry.findFirst({
     where: {
       teacherId: data.teacherId,
       day: data.day,
@@ -185,9 +185,40 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
     },
   });
 
-  if (teacherConflict?.teacher) {
+  if (theoryTeacherConflict?.teacher) {
     throw new AppError(
-      `Teacher ${teacherConflict.teacher.abbreviation} is already scheduled on ${DAY_LABELS[data.day as keyof typeof DAY_LABELS]} slot ${data.slotStart} for ${formatClassLabel(teacherConflict.classSection)}`,
+      `Teacher ${theoryTeacherConflict.teacher.abbreviation} is already scheduled on ${DAY_LABELS[data.day as keyof typeof DAY_LABELS]} slot ${data.slotStart} for ${formatClassLabel(theoryTeacherConflict.classSection)}`,
+      409,
+      "CONFLICT",
+    );
+  }
+
+  const labTeacherConflict = await db.labGroupEntry.findFirst({
+    where: {
+      teacherId: data.teacherId,
+      timetableEntry: {
+        day: data.day,
+        slotStart: { lte: data.slotStart },
+        slotEnd: { gte: data.slotStart },
+      },
+    },
+    include: {
+      teacher: true,
+      timetableEntry: {
+        include: {
+          classSection: {
+            include: {
+              branch: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (labTeacherConflict?.teacher) {
+    throw new AppError(
+      `Teacher ${labTeacherConflict.teacher.abbreviation} already has a lab on ${DAY_LABELS[data.day as keyof typeof DAY_LABELS]} slot ${data.slotStart} for ${formatClassLabel(labTeacherConflict.timetableEntry.classSection)}`,
       409,
       "CONFLICT",
     );

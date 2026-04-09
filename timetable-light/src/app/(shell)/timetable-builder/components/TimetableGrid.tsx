@@ -129,20 +129,28 @@ export function TimetableGrid({
        // If ALL rooms (or labs) are strictly busy, then we'd flag it. But this is rare.
      } else if (draggedGridItem && draggedGridItem.data) {
        const data = draggedGridItem.data;
+       
+       const isSelfOverlap = (s: number, d: number) => {
+          if (draggedGridItem.day !== d) return false;
+          if (data.type === "THEORY") return draggedGridItem.slot === s;
+          if (data.type === "LAB") return draggedGridItem.slot === s || draggedGridItem.slot + 1 === s;
+          return false;
+       };
+
        if (data.type === "THEORY") {
           if (data.teacherId) {
-             const overlaps = occupancyMap?.teachers?.[data.teacherId]?.[day]?.includes(slot);
+             const overlaps = occupancyMap?.teachers?.[data.teacherId]?.[day]?.includes(slot) && !isSelfOverlap(slot, day);
              if (overlaps) isBusy = true;
           }
           if (data.roomId && !isBusy) {
-             const overlapsRoom = occupancyMap?.rooms?.[data.roomId]?.[day]?.includes(slot);
+             const overlapsRoom = occupancyMap?.rooms?.[data.roomId]?.[day]?.includes(slot) && !isSelfOverlap(slot, day);
              if (overlapsRoom) isBusy = true;
           }
        } else if (data.type === "LAB") {
           const slotsToCheck = [slot, slot + 1];
           Object.values(data.groups).forEach(g => {
-             const overlapsT = slotsToCheck.some(s => occupancyMap?.teachers?.[g.teacherId]?.[day]?.includes(s));
-             const overlapsL = slotsToCheck.some(s => occupancyMap?.labs?.[g.labId]?.[day]?.includes(s));
+             const overlapsT = slotsToCheck.some(s => occupancyMap?.teachers?.[g.teacherId]?.[day]?.includes(s) && !isSelfOverlap(s, day));
+             const overlapsL = slotsToCheck.some(s => occupancyMap?.labs?.[g.labId]?.[day]?.includes(s) && !isSelfOverlap(s, day));
              if (overlapsT || overlapsL) isBusy = true;
           });
        }
