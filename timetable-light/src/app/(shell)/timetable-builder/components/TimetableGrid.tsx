@@ -88,12 +88,20 @@ export function TimetableGrid({
      let isBusy = false;
      
      // 0. Check if target cell in current grid is already occupied
-     const targetCell = matrix?.timetable[day]?.slots[slot];
-     if (targetCell && targetCell.type !== "LAB_CONTINUATION") {
-        if (!(draggedGridItem && draggedGridItem.day === day && draggedGridItem.slot === slot)) {
-           // It's occupied by another subject in our own grid
-           isBusy = true;
+     const checkGridOccupied = (s: number) => {
+        const cell = matrix?.timetable[day]?.slots[s];
+        if (cell && cell.type !== "LAB_CONTINUATION") {
+           if (!(draggedGridItem && draggedGridItem.day === day && draggedGridItem.slot === s)) {
+              return true;
+           }
         }
+        return false;
+     };
+
+     if (draggedSubject?.type === "LAB" || draggedGridItem?.data?.type === "LAB") {
+        if (checkGridOccupied(slot) || checkGridOccupied(slot + 1)) isBusy = true;
+     } else {
+        if (checkGridOccupied(slot)) isBusy = true;
      }
      
      if (!isBusy) {
@@ -254,7 +262,17 @@ export function TimetableGrid({
                 </div>
                 {[1, 2, 3, 4, 5, 6].map((day) => {
                   const data = matrix?.timetable[String(day)]?.slots[String(slot)] ?? null;
-                  return <div key={`${day}-${slot}`}>{renderSlotCell(data, day, slot)}</div>;
+                  if (data?.type === "LAB_CONTINUATION") return null;
+                  const rowSpan = data?.type === "LAB" ? 2 : 1;
+                  return (
+                    <div 
+                      key={`${day}-${slot}`} 
+                      style={{ gridRow: `span ${rowSpan} / span ${rowSpan}`}}
+                      className="border-b border-r border-outline-variant/10 min-h-[110px] bg-surface-container-lowest/20 h-full"
+                    >
+                      {renderSlotCell(data, day, slot)}
+                    </div>
+                  );
                 })}
               </Fragment>
             ))}
@@ -274,18 +292,17 @@ export function TimetableGrid({
                 </div>
                 {[1, 2, 3, 4, 5, 6].map((day) => {
                   const data = matrix?.timetable[String(day)]?.slots[String(slot)] ?? null;
-                  if (data?.type === "LAB_CONTINUATION") {
-                    return (
-                      <div 
-                        key={`${day}-${slot}`} 
-                        onDragOver={(e) => handleDragOver(e, day, slot)}
-                        onDragLeave={(e) => handleDragLeave(e, day, slot)}
-                        onDrop={(e) => handleDrop(e, day, slot)}
-                        className={`slot-cell ${getValidationClasses(day, slot)}`}
-                      />
-                    );
-                  }
-                  return <div key={`${day}-${slot}`}>{renderSlotCell(data, day, slot)}</div>;
+                  if (data?.type === "LAB_CONTINUATION") return null;
+                  const rowSpan = data?.type === "LAB" ? 2 : 1;
+                  return (
+                    <div 
+                      key={`${day}-${slot}`} 
+                      style={{ gridRow: `span ${rowSpan} / span ${rowSpan}`}}
+                      className="border-b border-r border-outline-variant/10 min-h-[110px] bg-surface-container-lowest/20 h-full"
+                    >
+                      {renderSlotCell(data, day, slot)}
+                    </div>
+                  );
                 })}
               </Fragment>
             ))}

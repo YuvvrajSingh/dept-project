@@ -4,7 +4,6 @@ import { prisma } from "../prisma/client";
 import { AppError } from "../utils/AppError";
 import { buildMatrix } from "../utils/timetableMatrix";
 import { DAY_LABELS, LAB_GROUPS, SLOT_TIMES } from "../utils/timetableConstants";
-import { emailService } from "./email.service";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -114,9 +113,9 @@ const validateLabShape = (data: LabEntryInput) => {
     throw new AppError("slotStart must be between 1 and 6", 400, "VALIDATION_ERROR");
   }
 
-  const slotEnd = data.slotEnd ?? data.slotStart;
-  if (slotEnd !== data.slotStart) {
-    throw new AppError("For LAB entries, slotEnd must equal slotStart", 400, "VALIDATION_ERROR");
+  const slotEnd = data.slotEnd ?? (data.slotStart + 1);
+  if (slotEnd !== data.slotStart + 1) {
+    throw new AppError("For LAB entries, slotEnd must equal slotStart + 1", 400, "VALIDATION_ERROR");
   }
 
   if (data.labGroups.length < 1 || data.labGroups.length > 3) {
@@ -160,7 +159,8 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
     where: {
       classSectionId: data.classSectionId,
       day: data.day,
-      slotStart: data.slotStart,
+      slotStart: { lte: data.slotStart },
+      slotEnd: { gte: data.slotStart },
     },
   });
 
@@ -172,7 +172,8 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
     where: {
       teacherId: data.teacherId,
       day: data.day,
-      slotStart: data.slotStart,
+      slotStart: { lte: data.slotStart },
+      slotEnd: { gte: data.slotStart },
     },
     include: {
       teacher: true,
@@ -196,7 +197,8 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
     where: {
       roomId: data.roomId,
       day: data.day,
-      slotStart: data.slotStart,
+      slotStart: { lte: data.slotStart },
+      slotEnd: { gte: data.slotStart },
     },
     include: { room: true },
   });
@@ -245,7 +247,8 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
     where: {
       classSectionId: data.classSectionId,
       day: data.day,
-      slotStart: data.slotStart,
+      slotStart: { lte: data.slotStart + 1 },
+      slotEnd: { gte: data.slotStart },
     },
   });
 
@@ -261,7 +264,8 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
       where: {
         teacherId: group.teacherId,
         day: data.day,
-        slotStart: data.slotStart,
+        slotStart: { lte: data.slotStart + 1 },
+        slotEnd: { gte: data.slotStart },
       },
       include: {
         classSection: {
@@ -285,7 +289,8 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
         teacherId: group.teacherId,
         timetableEntry: {
           day: data.day,
-          slotStart: data.slotStart,
+          slotStart: { lte: data.slotStart + 1 },
+          slotEnd: { gte: data.slotStart },
         },
       },
       include: {
@@ -314,7 +319,8 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
         labId: group.labId,
         timetableEntry: {
           day: data.day,
-          slotStart: data.slotStart,
+          slotStart: { lte: data.slotStart + 1 },
+          slotEnd: { gte: data.slotStart },
         },
       },
       include: {
@@ -344,7 +350,7 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
       classSectionId: data.classSectionId,
       day: data.day,
       slotStart: data.slotStart,
-      slotEnd: data.slotStart,
+      slotEnd: data.slotStart + 1,
       entryType: EntryType.LAB,
       subjectId: null,
       labGroups: {
@@ -369,43 +375,6 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
 };
 
 export const timetableService = {
-  async handleCancellationAlert(existing: any) {
-    const now = new Date();
-    const currentDay = now.getDay();
-    if (existing.day !== currentDay) return;
-
-    const slotStr = SLOT_TIMES[existing.slotStart as keyof typeof SLOT_TIMES].start;
-    const [slotH, slotM] = slotStr.split(':').map(Number);
-    const slotDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), slotH, slotM);
-
-    if (now < slotDate) {
-      if (existing.entryType === 'THEORY' && existing.teacher?.email) {
-        await emailService.sendClassReminder({
-          teacherEmail: existing.teacher.email,
-          teacherName: existing.teacher.name,
-          className: `${existing.classSection.branch.name} - Y${existing.classSection.year}`,
-          subjectName: existing.subject?.name || 'Subject',
-          roomName: existing.room?.name || 'Room',
-          timeLabel: slotStr,
-          isCancellation: true
-        });
-      } else if (existing.entryType === 'LAB') {
-        for (const lg of existing.labGroups) {
-          if (lg.teacher?.email) {
-            await emailService.sendClassReminder({
-              teacherEmail: lg.teacher.email,
-              teacherName: lg.teacher.name,
-              className: `${existing.classSection.branch.name} - Y${existing.classSection.year} (${lg.groupName})`,
-              subjectName: lg.subject?.name || 'Lab',
-              roomName: lg.lab.name,
-              timeLabel: slotStr,
-              isCancellation: true
-            });
-          }
-        }
-      }
-    }
-  },
 
   validateAndCreateTheoryEntry(data: TheoryEntryInput) {
     return createTheory(prisma, data);
@@ -431,7 +400,7 @@ export const timetableService = {
       throw new AppError("Timetable entry not found", 404, "NOT_FOUND");
     }
 
-    await this.handleCancellationAlert(existing);
+
 
     await prisma.timetableEntry.delete({ where: { id } });
   },
@@ -452,7 +421,7 @@ export const timetableService = {
       throw new AppError("Timetable entry not found", 404, "NOT_FOUND");
     }
 
-    await this.handleCancellationAlert(existing);
+
 
     return prisma.$transaction(async (tx) => {
       await tx.timetableEntry.delete({ where: { id } });

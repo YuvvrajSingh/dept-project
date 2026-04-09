@@ -236,8 +236,17 @@ function TimetableViewsInner() {
                 </div>
                 {[1,2,3,4,5,6].map((day) => {
                   const sd = matrix.timetable[String(day)]?.slots[String(slot)] ?? null;
-                  if (sd?.type === "LAB_CONTINUATION") return <div key={`${day}-${slot}`} />;
-                  return <div key={`${day}-${slot}`}>{renderSlotCell(sd)}</div>;
+                  if (sd?.type === "LAB_CONTINUATION") return null;
+                  const rowSpan = sd?.type === "LAB" ? 2 : 1;
+                  return (
+                    <div 
+                      key={`${day}-${slot}`} 
+                      style={{ gridRow: `span ${rowSpan} / span ${rowSpan}` }}
+                      className="h-full"
+                    >
+                      {renderSlotCell(sd)}
+                    </div>
+                  );
                 })}
               </Fragment>
             ))}
@@ -252,8 +261,17 @@ function TimetableViewsInner() {
                 </div>
                 {[1,2,3,4,5,6].map((day) => {
                   const sd = matrix.timetable[String(day)]?.slots[String(slot)] ?? null;
-                  if (sd?.type === "LAB_CONTINUATION") return <div key={`${day}-${slot}`} />;
-                  return <div key={`${day}-${slot}`}>{renderSlotCell(sd)}</div>;
+                  if (sd?.type === "LAB_CONTINUATION") return null;
+                  const rowSpan = sd?.type === "LAB" ? 2 : 1;
+                  return (
+                    <div 
+                      key={`${day}-${slot}`} 
+                      style={{ gridRow: `span ${rowSpan} / span ${rowSpan}` }}
+                      className="h-full"
+                    >
+                      {renderSlotCell(sd)}
+                    </div>
+                  );
                 })}
               </Fragment>
             ))}

@@ -50,7 +50,12 @@ type LabCell = {
   >;
 };
 
-type MatrixCell = TheoryCell | LabCell | null;
+type LabContinuationCell = {
+  type: "LAB_CONTINUATION";
+  entryId: number;
+};
+
+type MatrixCell = TheoryCell | LabCell | LabContinuationCell | null;
 
 type DayMatrix = {
   label: string;
@@ -132,6 +137,17 @@ export function buildMatrix(
       entryId: entry.id,
       groups,
     };
+
+    if (entry.slotEnd && entry.slotEnd > entry.slotStart) {
+      for (let s = entry.slotStart + 1; s <= entry.slotEnd; s++) {
+        if (s <= 6) {
+          matrix[dayKey].slots[String(s)] = {
+            type: "LAB_CONTINUATION",
+            entryId: entry.id,
+          };
+        }
+      }
+    }
   }
 
   return matrix;

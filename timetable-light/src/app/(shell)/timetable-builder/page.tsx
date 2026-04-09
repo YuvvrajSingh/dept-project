@@ -264,13 +264,15 @@ function TimetableBuilderInner() {
      Object.values(matrix.timetable).forEach(day => {
         Object.values(day.slots).forEach(slot => {
            if (slot && slot.type !== "LAB_CONTINUATION") {
-              let sId: number | null = null;
-              if (slot.type === "THEORY") sId = slot.subjectId;
-              else if (slot.type === "LAB") sId = Object.values(slot.groups)[0]?.subjectId || null;
-
-              if (sId) {
-                 const current = assigned.get(sId) || 0;
-                 assigned.set(sId, current + 1);
+              if (slot.type === "THEORY" && slot.subjectId) {
+                 const current = assigned.get(slot.subjectId) || 0;
+                 assigned.set(slot.subjectId, current + 1);
+              } else if (slot.type === "LAB") {
+                 const sId = Object.values(slot.groups)[0]?.subjectId || null;
+                 if (sId) {
+                    const current = assigned.get(sId) || 0;
+                    assigned.set(sId, current + 2); // LAB counts as 2 slots/credits
+                 }
               }
            }
         });
@@ -453,6 +455,54 @@ function TimetableBuilderInner() {
                 setIsEditing(false);
               }}
             />
+          )}
+
+           {!selectedCell && unassignedSubjects.length > 0 && selectedClass && (
+             <div className="flex-1 flex flex-col pt-6">
+                <h3 className="font-bold text-sm text-on-surface mb-4 uppercase tracking-wider flex items-center gap-2">
+                   <span className="material-symbols-outlined text-[16px] text-tertiary">inventory_2</span>
+                   Unassigned Subjects
+                </h3>
+                <div className="space-y-3 overflow-y-auto pr-2 pb-20">
+                   {unassignedSubjects.map(s => (
+                      <div 
+                         key={s.id} 
+                         draggable
+                         onDragStart={(e) => {
+                            e.dataTransfer.setData("application/json-subject", JSON.stringify(s.id));
+                            setDraggedSubject(s);
+                         }}
+                         onDragEnd={() => setDraggedSubject(null)}
+                         className="flex items-center justify-between p-3 bg-surface-container-low border border-outline-variant/30 rounded-lg shadow-sm hover:border-tertiary cursor-grab active:cursor-grabbing hover:shadow-md transition-all"
+                      >
+                         <div>
+                            <div className="font-bold text-sm text-on-surface leading-tight">{s.code}</div>
+                            <div className="text-[10px] text-on-surface-variant font-medium mt-0.5">{s.name}</div>
+                            <div className="text-[9px] font-bold tracking-widest text-on-tertiary-container mt-2">
+                               {s.type === 'THEORY' ? 'THEORY' : 'LAB'}
+                            </div>
+                         </div>
+                         <div className="flex flex-col items-end">
+                            <div className="bg-tertiary-container text-on-tertiary-container text-xs font-black px-2 py-1 rounded-md">
+                               {s.required - s.assigned} left
+                            </div>
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             </div>
+          )}
+
+          {!selectedCell && unassignedSubjects.length === 0 && selectedClass && (
+             <div className="flex flex-col items-center justify-center flex-1 text-center border-2 border-dashed border-outline-variant/30 rounded-xl bg-surface-container-lowest/50 text-on-surface-variant mt-6">
+               <span className="material-symbols-outlined text-4xl mb-4 text-emerald-500 opacity-80">task_alt</span>
+               <div className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-2">
+                 All Caught Up
+               </div>
+               <div className="text-[10px] font-medium mx-8 opacity-70">
+                 Every required subject and lab for this class section has been successfully assigned to the timetable.
+               </div>
+             </div>
           )}
 
 

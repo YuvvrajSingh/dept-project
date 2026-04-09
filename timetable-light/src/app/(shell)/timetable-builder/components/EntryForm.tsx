@@ -243,7 +243,7 @@ export function EntryForm({
               value={slot} onChange={e => { setSlot(e.target.value); setIssueFields([]); }} 
               className={`w-full bg-surface-container border-2 ${issueFields.includes("slot") ? "border-destructive bg-destructive/10" : "border-transparent"} rounded-lg text-sm font-semibold p-2 outline-none focus:border-secondary`}
             >
-              {(entryType === "LAB" ? [5] : [1,2,3,4,5,6]).map(s => <option key={s} value={s}>Slot {SLOT_TIMES[s].label}</option>)}
+              {(entryType === "LAB" ? [1,2,4,5] : [1,2,3,4,5,6]).map(s => <option key={s} value={s}>Slot {SLOT_TIMES[s as keyof typeof SLOT_TIMES].label}</option>)}
             </select>
           </div>
         </div>

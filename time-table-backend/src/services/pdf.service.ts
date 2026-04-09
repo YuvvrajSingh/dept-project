@@ -54,7 +54,9 @@ export const pdfService = {
             return `<div style="font-size: 10px;">${k}: ${g.subjectCode} (${g.lab}) - ${g.teacher}</div>`;
           }).join('');
           
-          rowHtml += `<td>${groupsHtml}</td>`;
+          rowHtml += `<td colspan="2">${groupsHtml}</td>`;
+        } else if (cell.type === 'LAB_CONTINUATION') {
+          // Do nothing, the previous cell has colspan="2"
         }
 
         // Add Lunch Break column after Slot 3 (12:00-12:45)
