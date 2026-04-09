@@ -20,6 +20,10 @@ export default function AssignmentsPage() {
   // Assign modal
   const [showAssign, setShowAssign] = useState(false);
   const [assignSubjectId, setAssignSubjectId] = useState("");
+  // Class filter inside the Teacher→Subject modal
+  const [modalFilterClassId, setModalFilterClassId] = useState("");
+  const [modalClassSubjectIds, setModalClassSubjectIds] = useState<number[] | null>(null);
+  const [modalClassLoading, setModalClassLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -51,6 +55,29 @@ export default function AssignmentsPage() {
     setClassSubjects(cs);
   }
 
+  async function handleModalClassFilter(classIdStr: string) {
+    setModalFilterClassId(classIdStr);
+    setAssignSubjectId("");
+    if (!classIdStr) {
+      setModalClassSubjectIds(null);
+      return;
+    }
+    setModalClassLoading(true);
+    try {
+      const cs = await classApi.getSubjects(parseInt(classIdStr)).catch(() => []);
+      setModalClassSubjectIds(cs.map((x: ClassSubject) => x.subjectId));
+    } finally {
+      setModalClassLoading(false);
+    }
+  }
+
+  function closeAssignModal() {
+    setShowAssign(false);
+    setAssignSubjectId("");
+    setModalFilterClassId("");
+    setModalClassSubjectIds(null);
+  }
+
   async function handleAssign() {
     const subId = parseInt(assignSubjectId);
     if (!subId) return;
@@ -62,8 +89,7 @@ export default function AssignmentsPage() {
         await classApi.assignSubject(selectedClass, subId);
         loadClassSubjects(selectedClass);
       }
-      setShowAssign(false);
-      setAssignSubjectId("");
+      closeAssignModal();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Error assigning");
     }
@@ -153,8 +179,8 @@ export default function AssignmentsPage() {
                     {c.branch?.name?.slice(0, 2) || "??"}
                   </div>
                   <div>
-                    <p className="text-sm font-bold">{c.branch?.name} Year {c.year}</p>
-                    <p className={`text-[10px] ${selectedClass === c.id ? "text-white/60" : "text-on-surface-variant"}`}>Section ID: {c.id}</p>
+                    <p className="text-sm font-bold">{c.branch?.name} Sem {c.semester}</p>
+                    <p className={`text-[10px] ${selectedClass === c.id ? "text-white/60" : "text-on-surface-variant"}`}>Year {c.year} &nbsp;·&nbsp; Section ID: {c.id}</p>
                   </div>
                 </button>
               ))
@@ -229,21 +255,53 @@ export default function AssignmentsPage() {
       {/* Assign modal */}
       {showAssign && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-on-surface/20 backdrop-blur-sm" onClick={() => setShowAssign(false)} />
+          <div className="absolute inset-0 bg-on-surface/20 backdrop-blur-sm" onClick={closeAssignModal} />
           <div className="relative bg-surface-container-lowest p-8 rounded-xl shadow-2xl w-full max-w-sm">
-            <h3 className="text-lg font-black tracking-tighter mb-6">Assign Subject</h3>
+            <h3 className="text-lg font-black tracking-tighter mb-1">Assign Subject</h3>
+
+            {view === "teacher-subject" && (
+              <>
+                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-5">
+                  Optionally filter by class
+                </p>
+                {/* Class filter */}
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Filter by Class</label>
+                <select
+                  value={modalFilterClassId}
+                  onChange={(e) => handleModalClassFilter(e.target.value)}
+                  className="w-full bg-surface-container-low border-none rounded-lg text-sm font-semibold p-3 mb-4 outline-none"
+                >
+                  <option value="">All subjects</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.branch?.name} Sem {c.semester} (Year {c.year})
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+
+            {/* Subject picker */}
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Subject</label>
             <select
               value={assignSubjectId}
               onChange={(e) => setAssignSubjectId(e.target.value)}
-              className="w-full bg-surface-container-low border-none rounded-lg text-sm font-semibold p-3 mb-6 outline-none"
+              disabled={modalClassLoading}
+              className="w-full bg-surface-container-low border-none rounded-lg text-sm font-semibold p-3 mb-6 outline-none disabled:opacity-50"
             >
-              <option value="">Select a subject...</option>
-              {subjects.map((s) => (
+              <option value="">
+                {modalClassLoading ? "Loading..." : "Select a subject..."}
+              </option>
+              {(modalClassSubjectIds !== null
+                ? subjects.filter((s) => modalClassSubjectIds.includes(s.id))
+                : subjects
+              ).map((s) => (
                 <option key={s.id} value={s.id}>{s.code} — {s.name}</option>
               ))}
             </select>
+
             <div className="flex gap-3">
-              <button onClick={() => setShowAssign(false)} className="flex-1 py-3 border border-outline-variant/30 text-on-surface-variant font-bold text-xs uppercase tracking-widest rounded-lg">Cancel</button>
+              <button onClick={closeAssignModal} className="flex-1 py-3 border border-outline-variant/30 text-on-surface-variant font-bold text-xs uppercase tracking-widest rounded-lg">Cancel</button>
               <button onClick={handleAssign} className="flex-1 py-3 bg-secondary text-white font-bold text-xs uppercase tracking-widest rounded-lg">Assign</button>
             </div>
           </div>
