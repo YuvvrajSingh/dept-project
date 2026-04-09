@@ -10,7 +10,6 @@ import { EntryForm } from "./components/EntryForm";
 import { PreviewPanel } from "./components/PreviewPanel";
 
 const BRANCHES = ["CSE", "IT", "AI"];
-const YEARS = [2, 3, 4];
 
 function TimetableBuilderInner() {
   const searchParams = useSearchParams();
@@ -22,7 +21,7 @@ function TimetableBuilderInner() {
   const [labs, setLabs] = useState<Lab[]>([]);
 
   const [branch, setBranch] = useState("CSE");
-  const [year, setYear] = useState<number>(2);
+  const [semester, setSemester] = useState<number | null>(null);
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
 
   const [matrix, setMatrix] = useState<TimetableMatrix | null>(null);
@@ -71,7 +70,7 @@ function TimetableBuilderInner() {
          const targetClass = c.find((cls: ClassSection) => cls.id === classIdNum);
          if (targetClass) {
             setBranch(targetClass.branch.name);
-            setYear(targetClass.year);
+            setSemester(targetClass.semester);
             setTimeout(() => {
                setSelectedClass(targetClass.id);
             }, 100);
@@ -82,26 +81,39 @@ function TimetableBuilderInner() {
     init();
   }, []);
 
-  const filteredClasses = useMemo(() => 
-    classes.filter((c) => c.branch?.name === branch && c.year === year),
-  [classes, branch, year]);
+  // Unique sorted semesters for the selected branch
+  const availableSemesters = useMemo(() => {
+    const sems = [...new Set(classes.filter(c => c.branch?.name === branch).map(c => c.semester))].sort((a, b) => a - b);
+    return sems;
+  }, [classes, branch]);
 
-  const handleClassSelection = async (classId: number) => {
-    if (isNaN(classId)) {
-      setSelectedClass(null);
-      setMatrix(null);
-      return;
-    }
-    setSelectedClass(classId);
-    await loadTimetable(classId);
-  };
-
+  // Auto-select first semester when branch changes or semesters load
   useEffect(() => {
-    setSelectedClass(null);
-    setMatrix(null);
+    if (availableSemesters.length > 0 && (semester === null || !availableSemesters.includes(semester))) {
+      setSemester(availableSemesters[0]);
+    }
+  }, [availableSemesters]);
+
+  const filteredClasses = useMemo(() =>
+    classes.filter((c) => c.branch?.name === branch && c.semester === semester),
+  [classes, branch, semester]);
+
+  // Auto-load timetable whenever branch+semester resolves to a class section.
+  // Deps are primitives (branch, semester) + stable classes array ref — never changes size.
+  useEffect(() => {
     setSelectedCell(null);
     setIsEditing(false);
-  }, [branch, year]);
+    setAuditReport(null);
+    if (!semester) return;
+    const match = classes.filter((c) => c.branch?.name === branch && c.semester === semester);
+    if (match.length === 1) {
+      setSelectedClass(match[0].id);
+      loadTimetable(match[0].id);
+    } else {
+      setSelectedClass(null);
+      setMatrix(null);
+    }
+  }, [branch, semester, classes]);
 
   // Load occupancy map whenever selected class changes
   useEffect(() => {
@@ -295,9 +307,9 @@ function TimetableBuilderInner() {
       <div className="flex-1 space-y-6">
         
         {/* Controls Panel */}
-        <div className="flex items-end gap-6 bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10">
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Branch</label>
+        <div className="flex items-center gap-6 bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10">
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider block">Branch</label>
             <select
               value={branch} onChange={(e) => setBranch(e.target.value)}
               className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-32 outline-none"
@@ -306,29 +318,18 @@ function TimetableBuilderInner() {
             </select>
           </div>
           
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Year</label>
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider block">Semester</label>
             <select
-              value={year} onChange={(e) => setYear(Number(e.target.value))}
+              value={semester ?? ""}
+              onChange={(e) => setSemester(Number(e.target.value))}
               className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-32 outline-none"
             >
-              {YEARS.map((y) => <option key={y} value={y}>Year {y}</option>)}
+              {availableSemesters.length === 0 && <option value="">—</option>}
+              {availableSemesters.map((s) => <option key={s} value={s}>Sem {s}</option>)}
             </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Class Section</label>
-            <select
-              value={selectedClass === null ? "" : selectedClass}
-              onChange={(e) => handleClassSelection(parseInt(e.target.value, 10))}
-              className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 pr-10 text-sm font-bold w-48 outline-none"
-            >
-              <option value="">Select...</option>
-              {filteredClasses.map((c) => (
-                <option key={c.id} value={c.id}>{c.branch?.name} - Year {c.year} (Sem {c.semester})</option>
-              ))}
-            </select>
-          </div>
 
           <div className="ml-auto flex items-center gap-3 flex-wrap justify-end pl-4">
             <button
