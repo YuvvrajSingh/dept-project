@@ -9,7 +9,6 @@ import { TimetableGrid } from "./components/TimetableGrid";
 import { EntryForm } from "./components/EntryForm";
 import { PreviewPanel } from "./components/PreviewPanel";
 
-const BRANCHES = ["CSE", "IT", "AI"];
 
 function TimetableBuilderInner() {
   const searchParams = useSearchParams();
@@ -20,7 +19,7 @@ function TimetableBuilderInner() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [labs, setLabs] = useState<Lab[]>([]);
 
-  const [branch, setBranch] = useState("CSE");
+  const [branch, setBranch] = useState<string | null>(null);
   const [semester, setSemester] = useState<number | null>(null);
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
 
@@ -80,6 +79,18 @@ function TimetableBuilderInner() {
     }
     init();
   }, []);
+
+  // Unique sorted branches derived from loaded class sections
+  const availableBranches = useMemo(() =>
+    [...new Set(classes.map(c => c.branch?.name).filter(Boolean))].sort() as string[],
+  [classes]);
+
+  // Auto-select first branch once classes load
+  useEffect(() => {
+    if (availableBranches.length > 0 && (branch === null || !availableBranches.includes(branch))) {
+      setBranch(availableBranches[0]);
+    }
+  }, [availableBranches]);
 
   // Unique sorted semesters for the selected branch
   const availableSemesters = useMemo(() => {
@@ -311,10 +322,12 @@ function TimetableBuilderInner() {
           <div className="flex flex-col gap-2">
             <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider block">Branch</label>
             <select
-              value={branch} onChange={(e) => setBranch(e.target.value)}
+              value={branch ?? ""}
+              onChange={(e) => setBranch(e.target.value)}
               className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-32 outline-none"
             >
-              {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
+              {availableBranches.length === 0 && <option value="">—</option>}
+              {availableBranches.map((b) => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
           

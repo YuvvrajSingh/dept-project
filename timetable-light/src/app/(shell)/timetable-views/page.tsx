@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, Fragment, Suspense } from "react";
+import React, { useEffect, useState, useMemo, Fragment, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { classApi, timetableApi, teacherApi, roomApi } from "@/lib/api";
 import type { ClassSection, TimetableMatrix, Teacher, Room, TimetableEntry, SlotData } from "@/lib/types";
@@ -20,9 +20,37 @@ function TimetableViewsInner() {
   const [selectedTeacher, setSelectedTeacher] = useState<number | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
 
+  // Branch + Semester filters for class view
+  const [branch, setBranch] = useState<string | null>(null);
+  const [semester, setSemester] = useState<number | null>(null);
+
   const [matrix, setMatrix] = useState<TimetableMatrix | null>(null);
   const [entries, setEntries] = useState<TimetableEntry[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Unique sorted branches derived from loaded class sections
+  const availableBranches = useMemo(() =>
+    [...new Set(classes.map(c => c.branch?.name).filter(Boolean))].sort() as string[],
+  [classes]);
+
+  // Auto-select first branch once classes load
+  useEffect(() => {
+    if (availableBranches.length > 0 && (branch === null || !availableBranches.includes(branch))) {
+      setBranch(availableBranches[0]);
+    }
+  }, [availableBranches]);
+
+  const availableSemesters = useMemo(() => {
+    const sems = [...new Set(classes.filter(c => c.branch?.name === branch).map(c => c.semester))].sort((a, b) => a - b);
+    return sems;
+  }, [classes, branch]);
+
+  // Auto-select first semester when branch changes or data loads
+  useEffect(() => {
+    if (availableSemesters.length > 0 && (semester === null || !availableSemesters.includes(semester))) {
+      setSemester(availableSemesters[0]);
+    }
+  }, [availableSemesters]);
 
   useEffect(() => {
     async function init() {
@@ -45,6 +73,18 @@ function TimetableViewsInner() {
     }
     init();
   }, [initTeacherId]);
+
+  // Auto-load class timetable when branch+semester resolves to a section
+  useEffect(() => {
+    if (viewMode !== "class" || !semester || classes.length === 0) return;
+    const match = classes.filter(c => c.branch?.name === branch && c.semester === semester);
+    if (match.length === 1) {
+      loadClassView(match[0].id);
+    } else {
+      setSelectedClass(null);
+      setMatrix(null);
+    }
+  }, [branch, semester, classes, viewMode]);
 
   async function loadClassView(classId: number) {
     setSelectedClass(classId);
@@ -168,45 +208,62 @@ function TimetableViewsInner() {
       </div>
 
       {/* Selector */}
-      <div className="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10 flex gap-6 items-end">
-        <div className="space-y-2">
-          <label className="block text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">
-            {viewMode === "class" ? "Class Selection" : viewMode === "teacher" ? "Teacher" : "Room"}
-          </label>
-          {viewMode === "class" && (
-            <select
-              value={selectedClass ?? ""}
-              onChange={(e) => loadClassView(parseInt(e.target.value))}
-              className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-56 outline-none border-2"
-            >
-              <option value="">Select class...</option>
-              {classes.map((c) => <option key={c.id} value={c.id}>{c.branch?.name} - Year {c.year} (Sem {c.semester})</option>)}
-            </select>
-          )}
-          {viewMode === "teacher" && (
-            <select
-              value={selectedTeacher ?? ""}
-              onChange={(e) => loadTeacherView(parseInt(e.target.value))}
-              className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-56 outline-none"
-            >
-              <option value="">Select teacher...</option>
-              {teachers.map((t) => <option key={t.id} value={t.id}>{t.abbreviation} - {t.name}</option>)}
-            </select>
-          )}
-          {viewMode === "room" && (
-            <select
-              value={selectedRoom ?? ""}
-              onChange={(e) => loadRoomView(parseInt(e.target.value))}
-              className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-56 outline-none"
-            >
-              <option value="">Select room...</option>
-              {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-          )}
-        </div>
-        
+      <div className="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10 flex gap-6 items-center">
+        {viewMode === "class" ? (
+          <>
+            <div className="flex flex-col gap-2">
+              <label className="block text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Branch</label>
+              <select
+                value={branch ?? ""}
+                onChange={(e) => setBranch(e.target.value)}
+                className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-32 outline-none"
+              >
+              {availableBranches.length === 0 && <option value="">—</option>}
+                {availableBranches.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="block text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Semester</label>
+              <select
+                value={semester ?? ""}
+                onChange={(e) => setSemester(Number(e.target.value))}
+                className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-32 outline-none"
+              >
+                {availableSemesters.length === 0 && <option value="">—</option>}
+                {availableSemesters.map((s) => <option key={s} value={s}>Sem {s}</option>)}
+              </select>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <label className="block text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">
+              {viewMode === "teacher" ? "Teacher" : "Room"}
+            </label>
+            {viewMode === "teacher" && (
+              <select
+                value={selectedTeacher ?? ""}
+                onChange={(e) => loadTeacherView(parseInt(e.target.value))}
+                className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-56 outline-none"
+              >
+                <option value="">Select teacher...</option>
+                {teachers.map((t) => <option key={t.id} value={t.id}>{t.abbreviation} - {t.name}</option>)}
+              </select>
+            )}
+            {viewMode === "room" && (
+              <select
+                value={selectedRoom ?? ""}
+                onChange={(e) => loadRoomView(parseInt(e.target.value))}
+                className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-56 outline-none"
+              >
+                <option value="">Select room...</option>
+                {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+            )}
+          </div>
+        )}
+
         {viewMode === "class" && selectedClass && (
-          <button 
+          <button
             onClick={handleExportPdf}
             className="h-[42px] px-6 bg-primary-container text-white font-bold text-sm rounded-lg hover:opacity-90 transition-all flex items-center gap-2"
           >
@@ -302,7 +359,7 @@ function TimetableViewsInner() {
                     }`}>{e.entryType}</span>
                   </td>
                   <td className="px-6 py-4 text-sm font-bold whitespace-nowrap text-on-surface-variant">
-                    {e.classSection?.branch?.name} - Y{e.classSection?.year}
+                    {e.classSection?.branch?.name} Sem {e.classSection?.semester}
                   </td>
                   <td className="px-6 py-4 text-sm font-bold">{e.subject?.name ?? e.subject?.code ?? "—"}</td>
                   {viewMode === "room" && <td className="px-6 py-4 text-sm">{e.teacher?.abbreviation ?? "—"}</td>}
