@@ -6,6 +6,7 @@ interface TimetableGridProps {
   matrix: TimetableMatrix | null;
   loading: boolean;
   filledSlots: number;
+  subjects?: Subject[];
   draggedSubject?: Subject | null;
   occupancyMap?: any;
   teacherMap?: Record<number, number[]>;
@@ -20,7 +21,8 @@ interface TimetableGridProps {
 export function TimetableGrid({ 
   matrix, 
   loading, 
-  filledSlots, 
+  filledSlots,
+  subjects,
   draggedSubject,
   occupancyMap,
   teacherMap,
@@ -31,6 +33,8 @@ export function TimetableGrid({
   onDropNewSubject,
   onDragSubjectEnd
 }: TimetableGridProps) {
+  const subjectById = Object.fromEntries((subjects ?? []).map(s => [s.id, s]));
+
   const [dragHover, setDragHover] = useState<{day: number, slot: number} | null>(null);
   const [draggedGridItem, setDraggedGridItem] = useState<{day: number, slot: number, data: SlotData} | null>(null);
 
@@ -192,7 +196,9 @@ export function TimetableGrid({
         className={`bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm border-l-4 border-indigo-600 slot-cell cursor-pointer hover:bg-surface-container-lowest transition-colors ${valClass}`}
       >
           <div className="text-[10px] font-bold text-indigo-600 mb-1">THEORY</div>
-          <div className="text-sm font-bold text-on-surface leading-tight">{data.subjectCode}</div>
+          <div className="text-sm font-bold text-on-surface leading-tight">
+            {subjectById[data.subjectId]?.abbreviation ?? data.subjectCode}
+          </div>
           <div className="mt-2 text-[10px] text-on-surface-variant">
             {data.teacherAbbr} // {data.roomName}
           </div>
@@ -217,8 +223,8 @@ export function TimetableGrid({
           <div className="mt-3 space-y-1">
             {Object.entries(data.groups).map(([group, info]) => (
               <div key={group} className="text-[9px] bg-surface-container-low p-1 rounded font-bold">
-                {group}: {info.teacher} @ {info.lab} 
-                {info.subjectCode ? ` [${info.subjectCode}]` : ""}
+                {group}: {info.teacher} @ {info.lab}
+                {info.subjectId ? ` [${subjectById[info.subjectId]?.abbreviation ?? info.subjectCode}]` : ""}
               </div>
             ))}
           </div>

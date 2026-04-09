@@ -413,6 +413,7 @@ function TimetableBuilderInner() {
           matrix={matrix} 
           loading={loading} 
           filledSlots={filledSlots}
+          subjects={subjects}
           draggedSubject={draggedSubject}
           occupancyMap={occupancyMap}
           teacherMap={teacherMap}

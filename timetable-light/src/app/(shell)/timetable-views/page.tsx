@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState, useMemo, Fragment, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { classApi, timetableApi, teacherApi, roomApi } from "@/lib/api";
-import type { ClassSection, TimetableMatrix, Teacher, Room, TimetableEntry, SlotData } from "@/lib/types";
+import { classApi, timetableApi, teacherApi, roomApi, subjectApi } from "@/lib/api";
+import type { ClassSection, TimetableMatrix, Teacher, Room, TimetableEntry, SlotData, Subject } from "@/lib/types";
 import { SLOT_TIMES, DAY_SHORT, DAY_LABELS } from "@/lib/types";
 
 type ViewMode = "class" | "teacher" | "room";
@@ -15,6 +15,7 @@ function TimetableViewsInner() {
   const [classes, setClasses] = useState<ClassSection[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
 
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
   const [selectedTeacher, setSelectedTeacher] = useState<number | null>(null);
@@ -54,14 +55,16 @@ function TimetableViewsInner() {
 
   useEffect(() => {
     async function init() {
-      const [c, t, r] = await Promise.all([
+      const [c, t, r, s] = await Promise.all([
         classApi.list().catch(() => []),
         teacherApi.list().catch(() => []),
         roomApi.list().catch(() => []),
+        subjectApi.list().catch(() => []),
       ]);
       setClasses(c);
       setTeachers(t);
       setRooms(r);
+      setSubjects(s);
 
       if (initTeacherId) {
          const tIdNum = parseInt(initTeacherId, 10);
@@ -146,6 +149,8 @@ function TimetableViewsInner() {
     }
   }
 
+  const subjectById = Object.fromEntries(subjects.map(s => [s.id, s]));
+
   function renderSlotCell(slotData: SlotData) {
     if (!slotData) return <div className="bg-surface-container-lowest m-0.5 p-3 rounded opacity-20 slot-cell" />;
     if (slotData.type === "LAB_CONTINUATION") return null;
@@ -153,7 +158,9 @@ function TimetableViewsInner() {
       return (
         <div className="bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm border-l-4 border-indigo-600 slot-cell">
           <div className="text-[10px] font-bold text-indigo-600 mb-1">THEORY</div>
-          <div className="text-sm font-bold text-on-surface leading-tight">{slotData.subjectCode}</div>
+          <div className="text-sm font-bold text-on-surface leading-tight">
+            {subjectById[slotData.subjectId]?.abbreviation ?? slotData.subjectCode}
+          </div>
           <div className="mt-2 text-[10px] text-on-surface-variant">{slotData.teacherAbbr} // {slotData.roomName}</div>
         </div>
       );
@@ -165,7 +172,10 @@ function TimetableViewsInner() {
           <div className="text-sm font-bold text-on-surface leading-tight">LABS</div>
           <div className="mt-2 space-y-1">
             {Object.entries(slotData.groups).map(([g, info]) => (
-              <div key={g} className="text-[9px] bg-surface-container-low p-1 rounded font-bold">{g}: {info.teacher} @ {info.lab}</div>
+              <div key={g} className="text-[9px] bg-surface-container-low p-1 rounded font-bold">
+                {g}: {info.teacher} @ {info.lab}
+                {info.subjectId ? ` [${subjectById[info.subjectId]?.abbreviation ?? info.subjectCode}]` : ""}
+              </div>
             ))}
           </div>
         </div>

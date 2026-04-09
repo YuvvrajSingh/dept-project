@@ -498,6 +498,7 @@ export const timetableService = {
       classSectionId,
       branch: classSection.branch.name,
       year: classSection.year,
+      semester: classSection.semester,
       timetable: buildMatrix(entries),
     };
   },
