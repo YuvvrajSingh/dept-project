@@ -11,6 +11,8 @@ const room_routes_1 = __importDefault(require("./routes/room.routes"));
 const subject_routes_1 = __importDefault(require("./routes/subject.routes"));
 const teacher_routes_1 = __importDefault(require("./routes/teacher.routes"));
 const timetable_routes_1 = __importDefault(require("./routes/timetable.routes"));
+const dashboard_routes_1 = __importDefault(require("./routes/dashboard.routes"));
+const occupancy_routes_1 = __importDefault(require("./routes/occupancy.routes"));
 const errorHandler_1 = require("./middleware/errorHandler");
 const app = (0, express_1.default)();
 const port = Number(process.env.PORT ?? 3000);
@@ -30,7 +32,9 @@ app.use("/api/subjects", subject_routes_1.default);
 app.use("/api/classes", class_routes_1.default);
 app.use("/api/rooms", room_routes_1.default);
 app.use("/api/labs", lab_routes_1.default);
+app.use("/api/timetable/occupancy", occupancy_routes_1.default);
 app.use("/api/timetable", timetable_routes_1.default);
+app.use("/api/dashboard", dashboard_routes_1.default);
 app.use((_req, res) => {
     res.status(404).json({ error: "NOT_FOUND", message: "Route not found" });
 });

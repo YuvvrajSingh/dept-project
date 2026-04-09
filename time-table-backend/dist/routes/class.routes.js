@@ -9,15 +9,17 @@ const idParamSchema = zod_1.z.object({
 });
 const classCreateSchema = zod_1.z.object({
     body: zod_1.z.object({
-        branchId: zod_1.z.coerce.number().int().positive(),
+        branchName: zod_1.z.string().trim().min(1).toUpperCase(),
         year: zod_1.z.union([zod_1.z.literal(2), zod_1.z.literal(3), zod_1.z.literal(4)]),
+        semester: zod_1.z.coerce.number().int().min(1).max(8),
     }),
 });
 const classUpdateSchema = zod_1.z.object({
     body: zod_1.z
         .object({
-        branchId: zod_1.z.coerce.number().int().positive().optional(),
+        branchName: zod_1.z.string().trim().min(1).toUpperCase().optional(),
         year: zod_1.z.union([zod_1.z.literal(2), zod_1.z.literal(3), zod_1.z.literal(4)]).optional(),
+        semester: zod_1.z.coerce.number().int().min(1).max(8).optional(),
     })
         .refine((body) => Object.keys(body).length > 0, {
         message: "At least one field is required",

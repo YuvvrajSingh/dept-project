@@ -325,7 +325,7 @@ function TimetableBuilderInner() {
             >
               <option value="">Select...</option>
               {filteredClasses.map((c) => (
-                <option key={c.id} value={c.id}>{c.branch?.name} - Year {c.year}</option>
+                <option key={c.id} value={c.id}>{c.branch?.name} - Year {c.year} (Sem {c.semester})</option>
               ))}
             </select>
           </div>

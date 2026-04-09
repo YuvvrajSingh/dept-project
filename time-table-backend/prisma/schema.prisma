@@ -16,17 +16,19 @@ model ClassSection {
   id         Int              @id @default(autoincrement())
   branchId   Int
   year       Int
+  semester   Int              @default(1)
   branch     Branch           @relation(fields: [branchId], references: [id])
   subjects   ClassSubject[]
   timetable  TimetableEntry[]
 
-  @@unique([branchId, year])
+  @@unique([branchId, year, semester])
 }
 
 model Subject {
   id               Int               @id @default(autoincrement())
   code             String            @unique
   name             String
+  abbreviation     String            @default("")
   type             SubjectType
   creditHours      Int
   teacherSubjects  TeacherSubject[]

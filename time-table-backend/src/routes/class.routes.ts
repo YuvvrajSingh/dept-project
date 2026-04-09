@@ -10,16 +10,18 @@ const idParamSchema = z.object({
 
 const classCreateSchema = z.object({
   body: z.object({
-    branchId: z.coerce.number().int().positive(),
+    branchName: z.string().trim().min(1).toUpperCase(),
     year: z.union([z.literal(2), z.literal(3), z.literal(4)]),
+    semester: z.coerce.number().int().min(1).max(8),
   }),
 });
 
 const classUpdateSchema = z.object({
   body: z
     .object({
-      branchId: z.coerce.number().int().positive().optional(),
+      branchName: z.string().trim().min(1).toUpperCase().optional(),
       year: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
+      semester: z.coerce.number().int().min(1).max(8).optional(),
     })
     .refine((body) => Object.keys(body).length > 0, {
       message: "At least one field is required",

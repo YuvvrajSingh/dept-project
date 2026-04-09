@@ -9,6 +9,7 @@ export interface ClassSection {
   id: number;
   branchId: number;
   year: number; // 2 | 3 | 4
+  semester: number;
   branch: Branch;
 }
 
@@ -16,6 +17,7 @@ export interface Subject {
   id: number;
   code: string;
   name: string;
+  abbreviation: string;
   type: "THEORY" | "LAB";
   creditHours: number;
 }

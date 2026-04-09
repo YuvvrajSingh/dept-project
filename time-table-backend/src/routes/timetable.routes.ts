@@ -123,6 +123,11 @@ router.delete(
   timetableController.clearGlobalTimetable
 );
 
+router.delete(
+  "/factory-reset",
+  timetableController.factoryReset
+);
+
 router.get(
   "/:classSectionId",
   (req, _res, next) => {

@@ -64,9 +64,9 @@ const validateLabShape = (data) => {
     if (!Number.isInteger(data.slotStart) || data.slotStart < 1 || data.slotStart > 6) {
         throw new AppError_1.AppError("slotStart must be between 1 and 6", 400, "VALIDATION_ERROR");
     }
-    const slotEnd = data.slotEnd ?? data.slotStart;
-    if (slotEnd !== data.slotStart) {
-        throw new AppError_1.AppError("For LAB entries, slotEnd must equal slotStart", 400, "VALIDATION_ERROR");
+    const slotEnd = data.slotEnd ?? (data.slotStart + 1);
+    if (slotEnd !== data.slotStart + 1) {
+        throw new AppError_1.AppError("For LAB entries, slotEnd must equal slotStart + 1", 400, "VALIDATION_ERROR");
     }
     if (data.labGroups.length < 1 || data.labGroups.length > 3) {
         throw new AppError_1.AppError("LAB entries must include 1 to 3 groups from A1, A2, A3", 400, "VALIDATION_ERROR");
@@ -97,17 +97,19 @@ const createTheory = async (db, data) => {
         where: {
             classSectionId: data.classSectionId,
             day: data.day,
-            slotStart: data.slotStart,
+            slotStart: { lte: data.slotStart },
+            slotEnd: { gte: data.slotStart },
         },
     });
     if (classConflict) {
         throw new AppError_1.AppError("Class section already has an entry at this slot", 409, "CONFLICT");
     }
-    const teacherConflict = await db.timetableEntry.findFirst({
+    const theoryTeacherConflict = await db.timetableEntry.findFirst({
         where: {
             teacherId: data.teacherId,
             day: data.day,
-            slotStart: data.slotStart,
+            slotStart: { lte: data.slotStart },
+            slotEnd: { gte: data.slotStart },
         },
         include: {
             teacher: true,
@@ -118,14 +120,40 @@ const createTheory = async (db, data) => {
             },
         },
     });
-    if (teacherConflict?.teacher) {
-        throw new AppError_1.AppError(`Teacher ${teacherConflict.teacher.abbreviation} is already scheduled on ${timetableConstants_1.DAY_LABELS[data.day]} slot ${data.slotStart} for ${formatClassLabel(teacherConflict.classSection)}`, 409, "CONFLICT");
+    if (theoryTeacherConflict?.teacher) {
+        throw new AppError_1.AppError(`Teacher ${theoryTeacherConflict.teacher.abbreviation} is already scheduled on ${timetableConstants_1.DAY_LABELS[data.day]} slot ${data.slotStart} for ${formatClassLabel(theoryTeacherConflict.classSection)}`, 409, "CONFLICT");
+    }
+    const labTeacherConflict = await db.labGroupEntry.findFirst({
+        where: {
+            teacherId: data.teacherId,
+            timetableEntry: {
+                day: data.day,
+                slotStart: { lte: data.slotStart },
+                slotEnd: { gte: data.slotStart },
+            },
+        },
+        include: {
+            teacher: true,
+            timetableEntry: {
+                include: {
+                    classSection: {
+                        include: {
+                            branch: true,
+                        },
+                    },
+                },
+            },
+        },
+    });
+    if (labTeacherConflict?.teacher) {
+        throw new AppError_1.AppError(`Teacher ${labTeacherConflict.teacher.abbreviation} already has a lab on ${timetableConstants_1.DAY_LABELS[data.day]} slot ${data.slotStart} for ${formatClassLabel(labTeacherConflict.timetableEntry.classSection)}`, 409, "CONFLICT");
     }
     const roomConflict = await db.timetableEntry.findFirst({
         where: {
             roomId: data.roomId,
             day: data.day,
-            slotStart: data.slotStart,
+            slotStart: { lte: data.slotStart },
+            slotEnd: { gte: data.slotStart },
         },
         include: { room: true },
     });
@@ -164,7 +192,8 @@ const createLab = async (db, data) => {
         where: {
             classSectionId: data.classSectionId,
             day: data.day,
-            slotStart: data.slotStart,
+            slotStart: { lte: data.slotStart + 1 },
+            slotEnd: { gte: data.slotStart },
         },
     });
     if (classConflict) {
@@ -177,7 +206,8 @@ const createLab = async (db, data) => {
             where: {
                 teacherId: group.teacherId,
                 day: data.day,
-                slotStart: data.slotStart,
+                slotStart: { lte: data.slotStart + 1 },
+                slotEnd: { gte: data.slotStart },
             },
             include: {
                 classSection: {
@@ -195,7 +225,8 @@ const createLab = async (db, data) => {
                 teacherId: group.teacherId,
                 timetableEntry: {
                     day: data.day,
-                    slotStart: data.slotStart,
+                    slotStart: { lte: data.slotStart + 1 },
+                    slotEnd: { gte: data.slotStart },
                 },
             },
             include: {
@@ -218,7 +249,8 @@ const createLab = async (db, data) => {
                 labId: group.labId,
                 timetableEntry: {
                     day: data.day,
-                    slotStart: data.slotStart,
+                    slotStart: { lte: data.slotStart + 1 },
+                    slotEnd: { gte: data.slotStart },
                 },
             },
             include: {
@@ -242,7 +274,7 @@ const createLab = async (db, data) => {
             classSectionId: data.classSectionId,
             day: data.day,
             slotStart: data.slotStart,
-            slotEnd: data.slotStart,
+            slotEnd: data.slotStart + 1,
             entryType: client_1.EntryType.LAB,
             subjectId: null,
             labGroups: {
@@ -273,14 +305,32 @@ exports.timetableService = {
         return client_2.prisma.$transaction((tx) => createLab(tx, data));
     },
     async deleteEntry(id) {
-        const existing = await client_2.prisma.timetableEntry.findUnique({ where: { id } });
+        const existing = await client_2.prisma.timetableEntry.findUnique({
+            where: { id },
+            include: {
+                teacher: true,
+                subject: true,
+                room: true,
+                classSection: { include: { branch: true } },
+                labGroups: { include: { teacher: true, subject: true, lab: true } }
+            }
+        });
         if (!existing) {
             throw new AppError_1.AppError("Timetable entry not found", 404, "NOT_FOUND");
         }
         await client_2.prisma.timetableEntry.delete({ where: { id } });
     },
     async updateEntry(id, data) {
-        const existing = await client_2.prisma.timetableEntry.findUnique({ where: { id } });
+        const existing = await client_2.prisma.timetableEntry.findUnique({
+            where: { id },
+            include: {
+                teacher: true,
+                subject: true,
+                room: true,
+                classSection: { include: { branch: true } },
+                labGroups: { include: { teacher: true, subject: true, lab: true } }
+            }
+        });
         if (!existing) {
             throw new AppError_1.AppError("Timetable entry not found", 404, "NOT_FOUND");
         }
@@ -387,5 +437,26 @@ exports.timetableService = {
             room,
             entries,
         };
+    },
+    factoryReset: async () => {
+        return client_2.prisma.$transaction(async (db) => {
+            // 1. Notification Logs
+            await db.notificationLog.deleteMany({});
+            // 2. Lab Group Entries (Dependent on TimetableEntry)
+            await db.labGroupEntry.deleteMany({});
+            // 3. Timetable Entries
+            await db.timetableEntry.deleteMany({});
+            // 4. Mappings (TeacherSubject, ClassSubject)
+            await db.teacherSubject.deleteMany({});
+            await db.classSubject.deleteMany({});
+            // 5. Basic entities
+            await db.room.deleteMany({});
+            await db.lab.deleteMany({});
+            await db.subject.deleteMany({});
+            await db.teacher.deleteMany({});
+            await db.classSection.deleteMany({});
+            await db.branch.deleteMany({});
+            return { success: true, message: "Factory reset complete" };
+        });
     },
 };

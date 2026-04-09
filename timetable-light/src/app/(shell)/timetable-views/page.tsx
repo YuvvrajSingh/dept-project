@@ -180,7 +180,7 @@ function TimetableViewsInner() {
               className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-56 outline-none border-2"
             >
               <option value="">Select class...</option>
-              {classes.map((c) => <option key={c.id} value={c.id}>{c.branch?.name} - Year {c.year}</option>)}
+              {classes.map((c) => <option key={c.id} value={c.id}>{c.branch?.name} - Year {c.year} (Sem {c.semester})</option>)}
             </select>
           )}
           {viewMode === "teacher" && (

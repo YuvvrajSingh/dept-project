@@ -27,55 +27,70 @@ exports.classService = {
         return classSection;
     },
     async createClassSection(data) {
-        const branch = await client_1.prisma.branch.findUnique({ where: { id: data.branchId } });
-        if (!branch) {
-            throw new AppError_1.AppError("Branch not found", 404, "NOT_FOUND");
-        }
+        const branch = await client_1.prisma.branch.upsert({
+            where: { name: data.branchName },
+            update: {},
+            create: { name: data.branchName },
+        });
         const existing = await client_1.prisma.classSection.findUnique({
             where: {
-                branchId_year: {
-                    branchId: data.branchId,
+                branchId_year_semester: {
+                    branchId: branch.id,
                     year: data.year,
+                    semester: data.semester,
                 },
             },
         });
         if (existing) {
-            throw new AppError_1.AppError("Class section already exists for this branch and year", 409, "CONFLICT");
+            throw new AppError_1.AppError("Class section already exists for this branch, year, and semester", 409, "CONFLICT");
         }
         return client_1.prisma.classSection.create({
-            data,
+            data: {
+                branchId: branch.id,
+                year: data.year,
+                semester: data.semester,
+            },
             include: { branch: true },
         });
     },
     async updateClassSection(id, data) {
         await assertClassExists(id);
-        if (data.branchId !== undefined) {
-            const branch = await client_1.prisma.branch.findUnique({ where: { id: data.branchId } });
-            if (!branch) {
-                throw new AppError_1.AppError("Branch not found", 404, "NOT_FOUND");
-            }
+        let updatedBranchId;
+        if (data.branchName !== undefined) {
+            const branch = await client_1.prisma.branch.upsert({
+                where: { name: data.branchName },
+                update: {},
+                create: { name: data.branchName },
+            });
+            updatedBranchId = branch.id;
         }
-        if (data.branchId !== undefined || data.year !== undefined) {
+        if (updatedBranchId !== undefined || data.year !== undefined || data.semester !== undefined) {
             const current = await client_1.prisma.classSection.findUnique({ where: { id } });
             if (!current) {
                 throw new AppError_1.AppError("Class section not found", 404, "NOT_FOUND");
             }
-            const branchId = data.branchId ?? current.branchId;
+            const branchId = updatedBranchId ?? current.branchId;
             const year = data.year ?? current.year;
+            const semester = data.semester ?? current.semester;
             const duplicate = await client_1.prisma.classSection.findFirst({
                 where: {
                     branchId,
                     year,
+                    semester,
                     NOT: { id },
                 },
             });
             if (duplicate) {
-                throw new AppError_1.AppError("Class section already exists for this branch and year", 409, "CONFLICT");
+                throw new AppError_1.AppError("Class section already exists for this branch, year, and semester", 409, "CONFLICT");
             }
         }
         return client_1.prisma.classSection.update({
             where: { id },
-            data,
+            data: {
+                ...(updatedBranchId !== undefined && { branchId: updatedBranchId }),
+                ...(data.year !== undefined && { year: data.year }),
+                ...(data.semester !== undefined && { semester: data.semester }),
+            },
             include: { branch: true },
         });
     },

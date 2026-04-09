@@ -25,6 +25,7 @@ export const subjectService = {
   createSubject(data: {
     code: string;
     name: string;
+    abbreviation: string;
     type: "THEORY" | "LAB";
     creditHours: number;
   }) {
@@ -33,7 +34,7 @@ export const subjectService = {
 
   async updateSubject(
     id: number,
-    data: Partial<{ code: string; name: string; type: "THEORY" | "LAB"; creditHours: number }>,
+    data: Partial<{ code: string; name: string; abbreviation: string; type: "THEORY" | "LAB"; creditHours: number }>,
   ) {
     await assertSubjectExists(id);
     return prisma.subject.update({ where: { id }, data });

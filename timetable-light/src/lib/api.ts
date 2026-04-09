@@ -51,7 +51,7 @@ export const teacherApi = {
 export const subjectApi = {
   list: () => request<Subject[]>("/api/subjects"),
   get: (id: number) => request<Subject>(`/api/subjects/${id}`),
-  create: (data: { code: string; name: string; type: "THEORY" | "LAB"; creditHours: number }) =>
+  create: (data: { code: string; name: string; abbreviation: string; type: "THEORY" | "LAB"; creditHours: number }) =>
     request<Subject>("/api/subjects", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number, data: Partial<Subject>) =>
     request<Subject>(`/api/subjects/${id}`, { method: "PUT", body: JSON.stringify(data) }),
@@ -62,9 +62,9 @@ export const subjectApi = {
 export const classApi = {
   list: () => request<ClassSection[]>("/api/classes"),
   get: (id: number) => request<ClassSection>(`/api/classes/${id}`),
-  create: (data: { branchId: number; year: number }) =>
+  create: (data: { branchName: string; year: number; semester: number }) =>
     request<ClassSection>("/api/classes", { method: "POST", body: JSON.stringify(data) }),
-  update: (id: number, data: Partial<{ branchId: number; year: number }>) =>
+  update: (id: number, data: Partial<{ branchName: string; year: number; semester: number }>) =>
     request<ClassSection>(`/api/classes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   delete: (id: number) => request(`/api/classes/${id}`, { method: "DELETE" }),
   getSubjects: (id: number) => request<ClassSubject[]>(`/api/classes/${id}/subjects`),
@@ -124,6 +124,8 @@ export const timetableApi = {
     request<{ success: boolean }>(`/api/timetable/${classSectionId}/clear`, { method: "DELETE" }),
   clearGlobalTimetable: () => 
     request<{ success: boolean }>('/api/timetable/clear-all', { method: "DELETE" }),
+  factoryReset: () =>
+    request<{ success: boolean; message: string }>('/api/timetable/factory-reset', { method: "DELETE" }),
   getExportPdfUrl: (classSectionId: number) => `${BASE}/api/timetable/${classSectionId}/export/pdf`,
   getOccupancy: (excludeClassSectionId?: number) => {
     const url = excludeClassSectionId ? `/api/timetable/occupancy?excludeClassSectionId=${excludeClassSectionId}` : "/api/timetable/occupancy";

@@ -571,4 +571,31 @@ export const timetableService = {
       entries,
     };
   },
+
+  factoryReset: async () => {
+    return prisma.$transaction(async (db) => {
+      // 1. Notification Logs
+      await db.notificationLog.deleteMany({});
+      
+      // 2. Lab Group Entries (Dependent on TimetableEntry)
+      await db.labGroupEntry.deleteMany({});
+      
+      // 3. Timetable Entries
+      await db.timetableEntry.deleteMany({});
+      
+      // 4. Mappings (TeacherSubject, ClassSubject)
+      await db.teacherSubject.deleteMany({});
+      await db.classSubject.deleteMany({});
+      
+      // 5. Basic entities
+      await db.room.deleteMany({});
+      await db.lab.deleteMany({});
+      await db.subject.deleteMany({});
+      await db.teacher.deleteMany({});
+      await db.classSection.deleteMany({});
+      await db.branch.deleteMany({});
+      
+      return { success: true, message: "Factory reset complete" };
+    });
+  },
 };

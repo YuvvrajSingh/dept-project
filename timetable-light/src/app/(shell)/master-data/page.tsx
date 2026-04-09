@@ -58,6 +58,7 @@ export default function MasterDataPage() {
         const payload = {
           code: formData.code || "",
           name: formData.name || "",
+          abbreviation: formData.abbreviation || "",
           type: (formData.type as "THEORY" | "LAB") || "THEORY",
           creditHours: parseInt(formData.creditHours || "4"),
         };
@@ -72,7 +73,9 @@ export default function MasterDataPage() {
         if (editingId) await labApi.update(editingId, payload);
         else await labApi.create(payload);
       } else if (tab === "classes") {
-        const payload = { branchId: parseInt(formData.branchId || "1"), year: parseInt(formData.year || "2") };
+        const sem = parseInt(formData.semester || "1");
+        const calculatedYear = Math.ceil(sem / 2);
+        const payload = { branchName: formData.branchName?.toUpperCase() || "CSE", year: calculatedYear, semester: sem };
         if (editingId) await classApi.update(editingId, payload);
         else await classApi.create(payload);
       }
@@ -90,11 +93,11 @@ export default function MasterDataPage() {
     if (type === "teachers") {
       setFormData({ name: item.name, abbreviation: item.abbreviation, email: item.email || "" });
     } else if (type === "subjects") {
-      setFormData({ code: item.code, name: item.name, type: item.type, creditHours: String(item.creditHours) });
+      setFormData({ code: item.code, name: item.name, abbreviation: item.abbreviation, type: item.type, creditHours: String(item.creditHours) });
     } else if (type === "rooms" || type === "labs") {
       setFormData({ name: item.name, capacity: String(item.capacity) });
     } else if (type === "classes") {
-      setFormData({ branchId: String(item.branch?.id || "1"), year: String(item.year) });
+      setFormData({ branchName: item.branch?.name || "CSE", semester: String(item.semester || 1) });
     }
     setDrawerOpen(true);
   }
@@ -193,6 +196,7 @@ export default function MasterDataPage() {
                   <>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Code</th>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Name</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Abbr</th>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Type</th>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Credits</th>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant text-right">Actions</th>
@@ -216,6 +220,7 @@ export default function MasterDataPage() {
                   <>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Branch</th>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Year</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Semester</th>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant text-right">Actions</th>
                   </>
                 )}
@@ -252,6 +257,7 @@ export default function MasterDataPage() {
                     <tr key={s.id} className="hover:bg-surface-container-lowest transition-colors">
                       <td className="px-6 py-5"><span className="font-mono text-sm font-bold text-secondary">{s.code}</span></td>
                       <td className="px-6 py-5 font-bold text-on-surface text-sm">{s.name}</td>
+                      <td className="px-6 py-5 font-bold text-on-surface-variant text-sm">{s.abbreviation || "-"}</td>
                       <td className="px-6 py-5">
                         <span className={`px-2 py-0.5 text-[9px] font-bold rounded uppercase tracking-tighter ${
                           s.type === "THEORY" ? "bg-primary-fixed text-on-primary-fixed-variant" : "bg-tertiary-fixed text-on-tertiary-fixed-variant"
@@ -302,6 +308,7 @@ export default function MasterDataPage() {
                         <span className="text-[9px] font-black text-secondary tracking-widest uppercase">{c.branch?.name}</span>
                       </td>
                       <td className="px-6 py-5 font-bold text-on-surface text-sm">Year {c.year}</td>
+                      <td className="px-6 py-5 font-bold text-on-surface text-sm">Sem {c.semester}</td>
                       <td className="px-6 py-5 text-right flex justify-end">
                         <button onClick={() => handleEditClick("classes", c)} className="p-2 text-on-surface-variant hover:text-secondary transition-colors">
                           <span className="material-symbols-outlined text-lg">edit</span>
@@ -373,6 +380,10 @@ export default function MasterDataPage() {
                     <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Subject Name</label>
                     <input value={formData.name || ""} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full bg-transparent border-0 border-b-2 border-outline-variant focus:ring-0 focus:border-secondary transition-all px-0 pb-2 text-lg font-bold outline-none" placeholder="e.g. Advanced Data Structures" />
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Abbreviation</label>
+                    <input value={formData.abbreviation || ""} onChange={(e) => setFormData({ ...formData, abbreviation: e.target.value })} className="w-full bg-transparent border-0 border-b-2 border-outline-variant focus:ring-0 focus:border-secondary transition-all px-0 pb-2 text-lg font-bold outline-none" placeholder="e.g. ADS" />
+                  </div>
                   <div className="grid grid-cols-2 gap-8">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Type</label>
@@ -403,16 +414,12 @@ export default function MasterDataPage() {
               {tab === "classes" && (
                 <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Branch ID</label>
-                    <input value={formData.branchId || ""} onChange={(e) => setFormData({ ...formData, branchId: e.target.value })} className="w-full bg-transparent border-0 border-b-2 border-outline-variant focus:ring-0 focus:border-secondary transition-all px-0 pb-2 font-bold outline-none" placeholder="1" type="number" />
+                    <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Branch Name</label>
+                    <input value={formData.branchName || ""} onChange={(e) => setFormData({ ...formData, branchName: e.target.value.toUpperCase() })} className="w-full bg-transparent border-0 border-b-2 border-outline-variant focus:ring-0 focus:border-secondary transition-all px-0 pb-2 font-bold outline-none" placeholder="e.g. CSE" type="text" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Year</label>
-                    <select value={formData.year || "2"} onChange={(e) => setFormData({ ...formData, year: e.target.value })} className="w-full bg-transparent border-0 border-b-2 border-outline-variant focus:ring-0 focus:border-secondary transition-all px-0 pb-2 font-bold outline-none">
-                      <option value="2">Year 2</option>
-                      <option value="3">Year 3</option>
-                      <option value="4">Year 4</option>
-                    </select>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Semester</label>
+                    <input value={formData.semester || ""} onChange={(e) => setFormData({ ...formData, semester: e.target.value })} className="w-full bg-transparent border-0 border-b-2 border-outline-variant focus:ring-0 focus:border-secondary transition-all px-0 pb-2 font-bold outline-none" placeholder="3" type="number" min="1" max="8" />
                   </div>
                 </div>
               )}

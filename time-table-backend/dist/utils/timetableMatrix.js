@@ -53,6 +53,16 @@ function buildMatrix(entries) {
             entryId: entry.id,
             groups,
         };
+        if (entry.slotEnd && entry.slotEnd > entry.slotStart) {
+            for (let s = entry.slotStart + 1; s <= entry.slotEnd; s++) {
+                if (s <= 6) {
+                    matrix[dayKey].slots[String(s)] = {
+                        type: "LAB_CONTINUATION",
+                        entryId: entry.id,
+                    };
+                }
+            }
+        }
     }
     return matrix;
 }

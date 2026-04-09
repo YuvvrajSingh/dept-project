@@ -3,6 +3,7 @@ import { EntryType } from "@prisma/client";
 import { prisma } from "../prisma/client";
 import { timetableService } from "../services/timetable.service";
 import { pdfService } from "../services/pdf.service";
+import { autoSchedulerService } from "../services/autoScheduler.service";
 
 export const timetableController = {
   async getClassTimetable(req: Request, res: Response, next: NextFunction) {
@@ -86,7 +87,6 @@ export const timetableController = {
   async generateTimetable(req: Request, res: Response, next: NextFunction) {
     try {
       const classSectionId = Number(req.params.classSectionId);
-      const { autoSchedulerService } = await import("../services/autoScheduler.service");
       const result = await autoSchedulerService.generateTimetable(classSectionId);
       res.status(200).json(result);
     } catch (error) {
@@ -112,6 +112,15 @@ export const timetableController = {
       res.status(200).json({ success: true });
     } catch (error) {
        next(error);
+    }
+  },
+
+  async factoryReset(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await timetableService.factoryReset();
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
     }
   },
 };

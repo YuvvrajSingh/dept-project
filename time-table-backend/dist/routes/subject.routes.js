@@ -11,6 +11,7 @@ const createSubjectSchema = zod_1.z.object({
     body: zod_1.z.object({
         code: zod_1.z.string().trim().min(1),
         name: zod_1.z.string().trim().min(1),
+        abbreviation: zod_1.z.string().trim().min(1),
         type: zod_1.z.enum(["THEORY", "LAB"]),
         creditHours: zod_1.z.coerce.number().int().positive(),
     }),
@@ -20,6 +21,7 @@ const updateSubjectSchema = zod_1.z.object({
         .object({
         code: zod_1.z.string().trim().min(1).optional(),
         name: zod_1.z.string().trim().min(1).optional(),
+        abbreviation: zod_1.z.string().trim().min(1).optional(),
         type: zod_1.z.enum(["THEORY", "LAB"]).optional(),
         creditHours: zod_1.z.coerce.number().int().positive().optional(),
     })

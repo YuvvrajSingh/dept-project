@@ -5,9 +5,15 @@ const zod_1 = require("zod");
 const timetable_controller_1 = require("../controllers/timetable.controller");
 const router = (0, express_1.Router)();
 const idSchema = zod_1.z.object({ id: zod_1.z.coerce.number().int().positive() });
-const classSectionParamSchema = zod_1.z.object({ classSectionId: zod_1.z.coerce.number().int().positive() });
-const teacherParamSchema = zod_1.z.object({ teacherId: zod_1.z.coerce.number().int().positive() });
-const roomParamSchema = zod_1.z.object({ roomId: zod_1.z.coerce.number().int().positive() });
+const classSectionParamSchema = zod_1.z.object({
+    classSectionId: zod_1.z.coerce.number().int().positive(),
+});
+const teacherParamSchema = zod_1.z.object({
+    teacherId: zod_1.z.coerce.number().int().positive(),
+});
+const roomParamSchema = zod_1.z.object({
+    roomId: zod_1.z.coerce.number().int().positive(),
+});
 const theorySchema = zod_1.z.object({
     body: zod_1.z.object({
         classSectionId: zod_1.z.coerce.number().int().positive(),
@@ -86,13 +92,50 @@ router.get("/room/:roomId", (req, _res, next) => {
         next(error);
     }
 }, timetable_controller_1.timetableController.getRoomOccupancy);
+router.delete("/clear-all", timetable_controller_1.timetableController.clearGlobalTimetable);
+router.delete("/factory-reset", timetable_controller_1.timetableController.factoryReset);
 router.get("/:classSectionId", (req, _res, next) => {
     try {
-        classSectionParamSchema.parse({ classSectionId: req.params.classSectionId });
+        classSectionParamSchema.parse({
+            classSectionId: req.params.classSectionId,
+        });
         next();
     }
     catch (error) {
         next(error);
     }
 }, timetable_controller_1.timetableController.getClassTimetable);
+router.get("/:classSectionId/export/pdf", (req, _res, next) => {
+    try {
+        classSectionParamSchema.parse({
+            classSectionId: req.params.classSectionId,
+        });
+        next();
+    }
+    catch (error) {
+        next(error);
+    }
+}, timetable_controller_1.timetableController.exportTimetablePdf);
+router.post("/:classSectionId/generate", (req, _res, next) => {
+    try {
+        classSectionParamSchema.parse({
+            classSectionId: req.params.classSectionId,
+        });
+        next();
+    }
+    catch (error) {
+        next(error);
+    }
+}, timetable_controller_1.timetableController.generateTimetable);
+router.delete("/:classSectionId/clear", (req, _res, next) => {
+    try {
+        classSectionParamSchema.parse({
+            classSectionId: req.params.classSectionId,
+        });
+        next();
+    }
+    catch (error) {
+        next(error);
+    }
+}, timetable_controller_1.timetableController.clearTimetable);
 exports.default = router;
