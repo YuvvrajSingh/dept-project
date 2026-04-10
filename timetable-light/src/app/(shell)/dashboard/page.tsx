@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { teacherApi, subjectApi, classApi, roomApi, labApi, dashboardApi } from "@/lib/api";
+import { useAcademicYear } from "@/contexts/academic-year-context";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 interface Stats {
@@ -16,6 +17,7 @@ interface Stats {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { selectedYear, loading: yearLoading } = useAcademicYear();
   const [stats, setStats] = useState<Stats>({ teachers: 0, subjects: 0, classes: 0, rooms: 0, labs: 0 });
   const [metrics, setMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -24,15 +26,17 @@ export default function DashboardPage() {
   const [selectedHeatmapCell, setSelectedHeatmapCell] = useState<any>(null);
 
   useEffect(() => {
+    if (yearLoading || !selectedYear) return;
     async function load() {
       try {
+        setLoading(true);
         const [teachers, subjects, classes, rooms, labs, dashMetrics] = await Promise.all([
           teacherApi.list().catch(() => []),
           subjectApi.list().catch(() => []),
-          classApi.list().catch(() => []),
+          classApi.list(selectedYear!.id).catch(() => []),
           roomApi.list().catch(() => []),
           labApi.list().catch(() => []),
-          dashboardApi.getMetrics().catch(() => null)
+          dashboardApi.getMetrics(selectedYear!.id).catch(() => null)
         ]);
         setStats({
           teachers: teachers.length,
@@ -47,7 +51,7 @@ export default function DashboardPage() {
       }
     }
     load();
-  }, []);
+  }, [selectedYear, yearLoading]);
 
   const statCards = [
     { label: "Teachers", value: stats.teachers, icon: "person", color: "text-indigo-600", bg: "bg-indigo-50" },

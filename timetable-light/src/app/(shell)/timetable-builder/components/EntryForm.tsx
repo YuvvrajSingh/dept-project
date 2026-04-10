@@ -140,7 +140,7 @@ export function EntryForm({
           teacherId: parseInt(teacherId),
           roomId: parseInt(roomId),
         };
-        if (existingEntry) {
+        if (existingEntry && 'entryId' in existingEntry) {
           await timetableApi.updateEntry(existingEntry.entryId, payload);
         } else {
           await timetableApi.createEntry(payload);
@@ -165,7 +165,7 @@ export function EntryForm({
           payload.subjectId = payload.labGroups[0].subjectId;
         }
 
-        if (existingEntry) {
+        if (existingEntry && 'entryId' in existingEntry) {
           await timetableApi.updateEntry(existingEntry.entryId, payload);
         } else {
           await timetableApi.createEntry(payload);

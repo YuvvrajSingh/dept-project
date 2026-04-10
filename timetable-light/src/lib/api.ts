@@ -8,6 +8,7 @@ import type {
   TimetableMatrix,
   TeacherSubject,
   ClassSubject,
+  AcademicYear,
 } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000";
@@ -26,6 +27,28 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return res.json();
 }
+
+// ── Academic Years ──
+export const academicYearApi = {
+  list: () => request<AcademicYear[]>("/api/academic-years"),
+  getActive: () => request<AcademicYear>("/api/academic-years/active"),
+  get: (id: number) => request<AcademicYear>(`/api/academic-years/${id}`),
+  create: (data: { startYear: number; startDate?: string; endDate?: string }) =>
+    request<AcademicYear>("/api/academic-years", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: number, data: { startDate?: string; endDate?: string }) =>
+    request<AcademicYear>(`/api/academic-years/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  updateStatus: (id: number, status: "DRAFT" | "ACTIVE" | "ARCHIVED") =>
+    request<AcademicYear>(`/api/academic-years/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
+  activate: (id: number) =>
+    request<AcademicYear>(`/api/academic-years/${id}/activate`, { method: "PUT" }),
+  clone: (sourceId: number, targetId: number) =>
+    request<{ success: boolean; message: string; stats: any }>(`/api/academic-years/${targetId}/clone`, {
+      method: "POST",
+      body: JSON.stringify({ sourceId }),
+    }),
+  delete: (id: number) => request(`/api/academic-years/${id}`, { method: "DELETE" }),
+  deleteAll: () => request<{ deleted: number }>(`/api/academic-years/all`, { method: "DELETE" }),
+};
 
 // ── Teachers ──
 export const teacherApi = {
@@ -60,9 +83,12 @@ export const subjectApi = {
 
 // ── Classes ──
 export const classApi = {
-  list: () => request<ClassSection[]>("/api/classes"),
+  list: (academicYearId?: number) => {
+    const url = academicYearId ? `/api/classes?academicYearId=${academicYearId}` : "/api/classes";
+    return request<ClassSection[]>(url);
+  },
   get: (id: number) => request<ClassSection>(`/api/classes/${id}`),
-  create: (data: { branchName: string; year: number; semester: number }) =>
+  create: (data: { branchName: string; year: number; semester: number; academicYearId: number }) =>
     request<ClassSection>("/api/classes", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number, data: Partial<{ branchName: string; year: number; semester: number }>) =>
     request<ClassSection>(`/api/classes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
@@ -109,15 +135,19 @@ export const timetableApi = {
     subjectId: number;
     teacherId?: number;
     roomId?: number;
-    labGroups?: { groupName: string; labId: number; teacherId: number }[];
+    labGroups?: { groupName: string; subjectId: number; labId: number; teacherId: number }[];
   }) => request<TimetableEntry>("/api/timetable/entry", { method: "POST", body: JSON.stringify(data) }),
   updateEntry: (id: number, data: Record<string, unknown>) =>
     request<TimetableEntry>(`/api/timetable/entry/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteEntry: (id: number) => request(`/api/timetable/entry/${id}`, { method: "DELETE" }),
-  getTeacherSchedule: (teacherId: number) =>
-    request<{ teacher: Teacher, theoryEntries: any[], labEntries: any[] }>(`/api/timetable/teacher/${teacherId}`),
-  getRoomOccupancy: (roomId: number) =>
-    request<{ room: Room, entries: TimetableEntry[] }>(`/api/timetable/room/${roomId}`),
+  getTeacherSchedule: (teacherId: number, academicYearId?: number) => {
+    const params = academicYearId ? `?academicYearId=${academicYearId}` : "";
+    return request<{ teacher: Teacher; theoryEntries: any[]; labEntries: any[] }>(`/api/timetable/teacher/${teacherId}${params}`);
+  },
+  getRoomOccupancy: (roomId: number, academicYearId?: number) => {
+    const params = academicYearId ? `?academicYearId=${academicYearId}` : "";
+    return request<{ room: Room; entries: TimetableEntry[] }>(`/api/timetable/room/${roomId}${params}`);
+  },
   generateTimetable: (classSectionId: number) => 
     request<{ success: boolean; auditReport: string[] }>(`/api/timetable/${classSectionId}/generate`, { method: "POST" }),
   clearTimetable: (classSectionId: number) => 
@@ -127,13 +157,20 @@ export const timetableApi = {
   factoryReset: () =>
     request<{ success: boolean; message: string }>('/api/timetable/factory-reset', { method: "DELETE" }),
   getExportPdfUrl: (classSectionId: number) => `${BASE}/api/timetable/${classSectionId}/export/pdf`,
-  getOccupancy: (excludeClassSectionId?: number) => {
-    const url = excludeClassSectionId ? `/api/timetable/occupancy?excludeClassSectionId=${excludeClassSectionId}` : "/api/timetable/occupancy";
-    return request<{ teachers: Record<number, Record<number, number[]>>, rooms: Record<number, Record<number, number[]>>, labs: Record<number, Record<number, number[]>> }>(url);
+  getOccupancy: (excludeClassSectionId?: number, academicYearId?: number) => {
+    const params = new URLSearchParams();
+    if (excludeClassSectionId) params.set("excludeClassSectionId", String(excludeClassSectionId));
+    if (academicYearId) params.set("academicYearId", String(academicYearId));
+    const qs = params.toString();
+    const url = qs ? `/api/timetable/occupancy?${qs}` : "/api/timetable/occupancy";
+    return request<{ teachers: Record<number, Record<number, number[]>>; rooms: Record<number, Record<number, number[]>>; labs: Record<number, Record<number, number[]>> }>(url);
   },
 };
 
 // ── Dashboard ──
 export const dashboardApi = {
-  getMetrics: () => request<any>("/api/dashboard/metrics"),
+  getMetrics: (academicYearId?: number) => {
+    const url = academicYearId ? `/api/dashboard/metrics?academicYearId=${academicYearId}` : "/api/dashboard/metrics";
+    return request<any>(url);
+  },
 };

@@ -9,11 +9,18 @@ export const occupancyController = {
          const parsed = parseInt(req.query.excludeClassSectionId as string, 10);
          if (!isNaN(parsed)) excludeId = parsed;
       }
+
+      let academicYearId: number | undefined = undefined;
+      if (req.query.academicYearId && req.query.academicYearId !== "undefined") {
+        const parsed = parseInt(req.query.academicYearId as string, 10);
+        if (!isNaN(parsed)) academicYearId = parsed;
+      }
       
       const allEntries = await prisma.timetableEntry.findMany({
-        where: excludeId ? {
-           classSectionId: { not: excludeId }
-        } : undefined,
+        where: {
+          ...(excludeId ? { classSectionId: { not: excludeId } } : {}),
+          ...(academicYearId ? { classSection: { academicYearId } } : {}),
+        },
         include: {
           labGroups: true
         }

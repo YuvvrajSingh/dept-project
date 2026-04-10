@@ -44,11 +44,14 @@ export const schedulerService = {
     for (const slotKey of matchedSlotKeys) {
       const slotInt = parseInt(slotKey, 10);
 
-      // Search TimetableEntries
+      // Search TimetableEntries — only for the active academic year
       const entries = await prisma.timetableEntry.findMany({
         where: {
           day: currentDayIndex,
           slotStart: slotInt,
+          classSection: {
+            academicYear: { isActive: true },
+          },
         },
         include: {
           classSection: { include: { branch: true } },

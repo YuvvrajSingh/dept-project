@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { classApi, timetableApi, subjectApi, teacherApi, roomApi, labApi } from "@/lib/api";
+import { useAcademicYear } from "@/contexts/academic-year-context";
 import type { ClassSection, TimetableMatrix, Subject, Teacher, Room, Lab, SlotData } from "@/lib/types";
 
 import { TimetableGrid } from "./components/TimetableGrid";
@@ -13,6 +14,7 @@ import { PreviewPanel } from "./components/PreviewPanel";
 function TimetableBuilderInner() {
   const searchParams = useSearchParams();
   const initClassId = searchParams.get("classSectionId");
+  const { selectedYear, isArchived, loading: yearLoading } = useAcademicYear();
   const [classes, setClasses] = useState<ClassSection[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -35,14 +37,15 @@ function TimetableBuilderInner() {
   const [auditReport, setAuditReport] = useState<string[] | null>(null);
 
   useEffect(() => {
+    if (yearLoading || !selectedYear) return;
     async function init() {
       const [c, s, t, r, l, occ] = await Promise.all([
-        classApi.list().catch(() => []),
+        classApi.list(selectedYear!.id).catch(() => []),
         subjectApi.list().catch(() => []), 
         teacherApi.list().catch(() => []),
         roomApi.list().catch(() => []),
         labApi.list().catch(() => []),
-        timetableApi.getOccupancy().catch(() => null),
+        timetableApi.getOccupancy(undefined, selectedYear!.id).catch(() => null),
       ]);
       setClasses(c);
       setSubjects(s);
@@ -64,6 +67,12 @@ function TimetableBuilderInner() {
       await Promise.all(tPromises);
       setTeacherMap(tMap);
 
+      // Reset selections when year changes
+      setBranch(null);
+      setSemester(null);
+      setSelectedClass(null);
+      setMatrix(null);
+
       if (initClassId) {
          const classIdNum = parseInt(initClassId, 10);
          const targetClass = c.find((cls: ClassSection) => cls.id === classIdNum);
@@ -78,7 +87,7 @@ function TimetableBuilderInner() {
 
     }
     init();
-  }, []);
+  }, [selectedYear, yearLoading]);
 
   // Unique sorted branches derived from loaded class sections
   const availableBranches = useMemo(() =>
@@ -255,13 +264,13 @@ function TimetableBuilderInner() {
             entryType: "LAB",
             subjectId: subject.id,
             labGroups: [
-               { groupName: "A1", labId: fallbackLabId!, teacherId: selectedTeacherId! }
+               { groupName: "A1", subjectId: subject.id, labId: fallbackLabId!, teacherId: selectedTeacherId! }
             ]
          });
       }
       // Re-fetch occupancy and timetable
       await Promise.all([
-        timetableApi.getOccupancy().then(occ => setOccupancyMap(occ)).catch(() => {}),
+        timetableApi.getOccupancy(undefined, selectedYear?.id).then(occ => setOccupancyMap(occ)).catch(() => {}),
         loadTimetable(selectedClass)
       ]);
     } catch (e: any) {

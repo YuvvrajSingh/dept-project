@@ -54,7 +54,8 @@ export const timetableController = {
   async getTeacherSchedule(req: Request, res: Response, next: NextFunction) {
     try {
       const teacherId = Number(req.params.teacherId);
-      const data = await timetableService.getTeacherSchedule(teacherId);
+      const academicYearId = req.query.academicYearId ? Number(req.query.academicYearId) : undefined;
+      const data = await timetableService.getTeacherSchedule(teacherId, academicYearId);
       res.status(200).json(data);
     } catch (error) {
       next(error);
@@ -77,7 +78,8 @@ export const timetableController = {
   async getRoomOccupancy(req: Request, res: Response, next: NextFunction) {
     try {
       const roomId = Number(req.params.roomId);
-      const data = await timetableService.getRoomOccupancy(roomId);
+      const academicYearId = req.query.academicYearId ? Number(req.query.academicYearId) : undefined;
+      const data = await timetableService.getRoomOccupancy(roomId, academicYearId);
       res.status(200).json(data);
     } catch (error) {
       next(error);

@@ -1,4 +1,4 @@
-import { PrismaClient, EntryType } from "@prisma/client";
+import { PrismaClient, EntryType, AcademicYearStatus } from "@prisma/client";
 import { prisma } from "../prisma/client";
 import { AppError } from "../utils/AppError";
 import { LAB_GROUPS } from "../utils/timetableConstants";
@@ -12,6 +12,14 @@ export const autoSchedulerService = {
     });
 
     if (!classSection) throw new AppError("Class section not found", 404, "NOT_FOUND");
+
+    // Check if academic year is archived
+    const academicYear = await prisma.academicYear.findUnique({ where: { id: classSection.academicYearId } });
+    if (!academicYear) throw new AppError("Academic year not found", 404, "NOT_FOUND");
+    if (academicYear.status === AcademicYearStatus.ARCHIVED) {
+      throw new AppError("Cannot generate timetable for an archived academic year", 403, "FORBIDDEN");
+    }
+    const academicYearId = classSection.academicYearId;
 
     const classSubjects = classSection.subjects.map((cs) => cs.subject!);
     if (classSubjects.length === 0) {
@@ -41,9 +49,12 @@ export const autoSchedulerService = {
     for (const r of allRooms) roomOcc[r.id] = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{}, 6:{} };
     for (const l of allLabs) labOcc[l.id] = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{}, 6:{} };
 
-    // Fetch existing entries EXCLUDING the current class (we will overwrite current class)
+    // Fetch existing entries EXCLUDING the current class but WITHIN the same academic year
     const existingEntries = await prisma.timetableEntry.findMany({
-      where: { classSectionId: { not: classSectionId } },
+      where: {
+        classSectionId: { not: classSectionId },
+        classSection: { academicYearId },
+      },
       include: { labGroups: true },
     });
 

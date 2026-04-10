@@ -8,6 +8,7 @@ import teacherRoutes from "./routes/teacher.routes";
 import timetableRoutes from "./routes/timetable.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import occupancyRoutes from "./routes/occupancy.routes";
+import academicYearRoutes from "./routes/academicYear.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { schedulerService } from "./services/scheduler.service";
 
@@ -35,6 +36,7 @@ app.use("/api/labs", labRoutes);
 app.use("/api/timetable/occupancy", occupancyRoutes);
 app.use("/api/timetable", timetableRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/academic-years", academicYearRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "NOT_FOUND", message: "Route not found" });

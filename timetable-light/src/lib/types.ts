@@ -2,15 +2,29 @@
 
 export interface Branch {
   id: number;
-  name: string; // "CSE" | "IT" | "AI"
+  name: string;
+}
+
+export interface AcademicYear {
+  id: number;
+  label: string;
+  startYear: number;
+  endYear: number;
+  startDate: string;
+  endDate: string;
+  status: "DRAFT" | "ACTIVE" | "ARCHIVED";
+  isActive: boolean;
+  _count?: { classSections: number };
 }
 
 export interface ClassSection {
   id: number;
+  academicYearId: number;
   branchId: number;
-  year: number; // 2 | 3 | 4
+  year: number;
   semester: number;
   branch: Branch;
+  academicYear?: AcademicYear;
 }
 
 export interface Subject {

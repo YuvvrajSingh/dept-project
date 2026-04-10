@@ -13,6 +13,7 @@ const classCreateSchema = z.object({
     branchName: z.string().trim().min(1).toUpperCase(),
     year: z.union([z.literal(2), z.literal(3), z.literal(4)]),
     semester: z.coerce.number().int().min(1).max(8),
+    academicYearId: z.coerce.number().int().positive(),
   }),
 });
 
@@ -43,7 +44,10 @@ const validate = (schema: z.ZodSchema, payload: unknown) => {
   schema.parse(payload);
 };
 
-router.get("/", classController.list);
+router.get("/", (req, _res, next) => {
+  (req as any).academicYearId = req.query.academicYearId ? Number(req.query.academicYearId) : undefined;
+  next();
+}, classController.list);
 
 router.get("/:id", (req, _res, next) => {
   try {

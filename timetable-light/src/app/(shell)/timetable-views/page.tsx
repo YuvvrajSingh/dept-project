@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo, Fragment, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { classApi, timetableApi, teacherApi, roomApi, subjectApi } from "@/lib/api";
+import { useAcademicYear } from "@/contexts/academic-year-context";
 import type { ClassSection, TimetableMatrix, Teacher, Room, TimetableEntry, SlotData, Subject } from "@/lib/types";
 import { SLOT_TIMES, DAY_SHORT, DAY_LABELS } from "@/lib/types";
 
@@ -11,6 +12,7 @@ type ViewMode = "class" | "teacher" | "room";
 function TimetableViewsInner() {
   const searchParams = useSearchParams();
   const initTeacherId = searchParams.get("teacherId");
+  const { selectedYear, loading: yearLoading } = useAcademicYear();
   const [viewMode, setViewMode] = useState<ViewMode>("class");
   const [classes, setClasses] = useState<ClassSection[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -54,9 +56,10 @@ function TimetableViewsInner() {
   }, [availableSemesters]);
 
   useEffect(() => {
+    if (yearLoading || !selectedYear) return;
     async function init() {
       const [c, t, r, s] = await Promise.all([
-        classApi.list().catch(() => []),
+        classApi.list(selectedYear!.id).catch(() => []),
         teacherApi.list().catch(() => []),
         roomApi.list().catch(() => []),
         subjectApi.list().catch(() => []),
@@ -65,6 +68,15 @@ function TimetableViewsInner() {
       setTeachers(t);
       setRooms(r);
       setSubjects(s);
+
+      // Reset selections when year changes
+      setBranch(null);
+      setSemester(null);
+      setSelectedClass(null);
+      setSelectedTeacher(null);
+      setSelectedRoom(null);
+      setMatrix(null);
+      setEntries([]);
 
       if (initTeacherId) {
          const tIdNum = parseInt(initTeacherId, 10);
@@ -75,7 +87,7 @@ function TimetableViewsInner() {
       }
     }
     init();
-  }, [initTeacherId]);
+  }, [selectedYear, yearLoading, initTeacherId]);
 
   // Auto-load class timetable when branch+semester resolves to a section
   useEffect(() => {
@@ -110,7 +122,7 @@ function TimetableViewsInner() {
     setSelectedTeacher(teacherId);
     setLoading(true);
     try {
-      const e = await timetableApi.getTeacherSchedule(teacherId);
+      const e = await timetableApi.getTeacherSchedule(teacherId, selectedYear?.id);
       const mappedLabs = e.labEntries.map((l: any) => ({
         id: l.id + 100000,
         day: l.timetableEntry.day,
@@ -139,7 +151,7 @@ function TimetableViewsInner() {
     setSelectedRoom(roomId);
     setLoading(true);
     try {
-      const e = await timetableApi.getRoomOccupancy(roomId);
+      const e = await timetableApi.getRoomOccupancy(roomId, selectedYear?.id);
       setEntries(e.entries);
       setMatrix(null);
     } catch {

@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { teacherApi, subjectApi, classApi } from "@/lib/api";
+import { useAcademicYear } from "@/contexts/academic-year-context";
 import type { Teacher, Subject, ClassSection, TeacherSubject, ClassSubject } from "@/lib/types";
 
 type View = "teacher-subject" | "class-subject";
 
 export default function AssignmentsPage() {
+  const { selectedYear, isArchived, loading: yearLoading } = useAcademicYear();
   const [view, setView] = useState<View>("teacher-subject");
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -26,12 +28,13 @@ export default function AssignmentsPage() {
   const [modalClassLoading, setModalClassLoading] = useState(false);
 
   useEffect(() => {
+    if (yearLoading || !selectedYear) return;
     async function load() {
       try {
         const [t, s, c] = await Promise.all([
           teacherApi.list().catch(() => []),
           subjectApi.list().catch(() => []),
-          classApi.list().catch(() => []),
+          classApi.list(selectedYear!.id).catch(() => []),
         ]);
         setTeachers(t);
         setSubjects(s);
@@ -41,7 +44,7 @@ export default function AssignmentsPage() {
       }
     }
     load();
-  }, []);
+  }, [selectedYear, yearLoading]);
 
   async function loadTeacherSubjects(tId: number) {
     setSelectedTeacher(tId);

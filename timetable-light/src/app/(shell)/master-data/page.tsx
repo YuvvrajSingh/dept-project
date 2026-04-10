@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { teacherApi, subjectApi, roomApi, labApi, classApi } from "@/lib/api";
+import { useAcademicYear } from "@/contexts/academic-year-context";
 import type { Teacher, Subject, Room, Lab, ClassSection } from "@/lib/types";
 
 type Tab = "teachers" | "subjects" | "rooms" | "labs" | "classes";
 
 export default function MasterDataPage() {
+  const { selectedYear, isArchived, loading: yearLoading } = useAcademicYear();
   const [tab, setTab] = useState<Tab>("teachers");
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -21,8 +23,9 @@ export default function MasterDataPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
 
   useEffect(() => {
+    if (yearLoading || !selectedYear) return;
     loadAll();
-  }, []);
+  }, [selectedYear, yearLoading]);
 
   async function loadAll() {
     setLoading(true);
@@ -32,7 +35,7 @@ export default function MasterDataPage() {
         subjectApi.list().catch(() => []),
         roomApi.list().catch(() => []),
         labApi.list().catch(() => []),
-        classApi.list().catch(() => []),
+        classApi.list(selectedYear?.id).catch(() => []),
       ]);
       setTeachers(t);
       setSubjects(s);
@@ -75,7 +78,7 @@ export default function MasterDataPage() {
       } else if (tab === "classes") {
         const sem = parseInt(formData.semester || "1");
         const calculatedYear = Math.ceil(sem / 2);
-        const payload = { branchName: formData.branchName?.toUpperCase() || "CSE", year: calculatedYear, semester: sem };
+        const payload = { branchName: formData.branchName?.toUpperCase() || "CSE", year: calculatedYear, semester: sem, academicYearId: selectedYear!.id };
         if (editingId) await classApi.update(editingId, payload);
         else await classApi.create(payload);
       }

@@ -2,9 +2,10 @@ import type { NextFunction, Request, Response } from "express";
 import { classService } from "../services/class.service";
 
 export const classController = {
-  async list(_req: Request, res: Response, next: NextFunction) {
+  async list(req: Request, res: Response, next: NextFunction) {
     try {
-      const data = await classService.listClassSections();
+      const academicYearId = (req as any).academicYearId as number | undefined;
+      const data = await classService.listClassSections(academicYearId);
       res.status(200).json(data);
     } catch (error) {
       next(error);

@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { EntryType } from "@prisma/client";
+import { EntryType, AcademicYearStatus } from "@prisma/client";
 import { prisma } from "../prisma/client";
 import { AppError } from "../utils/AppError";
 import { buildMatrix } from "../utils/timetableMatrix";
@@ -38,6 +38,20 @@ const assertDay = (day: number) => {
   if (!Number.isInteger(day) || day < 1 || day > 6) {
     throw new AppError("Day must be between 1 and 6", 400, "VALIDATION_ERROR");
   }
+};
+
+const getAcademicYearIdForClass = async (db: DbClient, classSectionId: number): Promise<number> => {
+  const cs = await db.classSection.findUnique({
+    where: { id: classSectionId },
+    select: { academicYearId: true, academicYear: true },
+  });
+  if (!cs) {
+    throw new AppError("Class section not found", 404, "NOT_FOUND");
+  }
+  if (cs.academicYear.status === AcademicYearStatus.ARCHIVED) {
+    throw new AppError("Cannot modify timetable in an archived academic year", 403, "FORBIDDEN");
+  }
+  return cs.academicYearId;
 };
 
 const assertClassAndSubjectPrereq = async (
@@ -145,8 +159,14 @@ const formatClassLabel = (
   return `${branchName} Year ${classSection.year}`;
 };
 
+// Scope filter: only check conflicts within the same academic year
+const yearScopeFilter = (academicYearId: number) => ({
+  classSection: { academicYearId },
+});
+
 const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
   validateTheoryShape(data);
+  const academicYearId = await getAcademicYearIdForClass(db, data.classSectionId);
   await assertClassAndSubjectPrereq(db, data.classSectionId, data.subjectId);
   await assertTeacherSubjectPrereq(db, data.teacherId, data.subjectId);
 
@@ -170,6 +190,7 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
 
   const theoryTeacherConflict = await db.timetableEntry.findFirst({
     where: {
+      ...yearScopeFilter(academicYearId),
       teacherId: data.teacherId,
       day: data.day,
       slotStart: { lte: data.slotStart },
@@ -197,6 +218,7 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
     where: {
       teacherId: data.teacherId,
       timetableEntry: {
+        ...yearScopeFilter(academicYearId),
         day: data.day,
         slotStart: { lte: data.slotStart },
         slotEnd: { gte: data.slotStart },
@@ -226,6 +248,7 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
 
   const roomConflict = await db.timetableEntry.findFirst({
     where: {
+      ...yearScopeFilter(academicYearId),
       roomId: data.roomId,
       day: data.day,
       slotStart: { lte: data.slotStart },
@@ -263,6 +286,7 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
 
 const createLab = async (db: DbClient, data: LabEntryInput) => {
   validateLabShape(data);
+  const academicYearId = await getAcademicYearIdForClass(db, data.classSectionId);
 
   for (const group of data.labGroups) {
     await assertClassAndSubjectPrereq(db, data.classSectionId, group.subjectId);
@@ -293,6 +317,7 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
 
     const theoryTeacherConflict = await db.timetableEntry.findFirst({
       where: {
+        ...yearScopeFilter(academicYearId),
         teacherId: group.teacherId,
         day: data.day,
         slotStart: { lte: data.slotStart + 1 },
@@ -319,6 +344,7 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
       where: {
         teacherId: group.teacherId,
         timetableEntry: {
+          ...yearScopeFilter(academicYearId),
           day: data.day,
           slotStart: { lte: data.slotStart + 1 },
           slotEnd: { gte: data.slotStart },
@@ -349,6 +375,7 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
       where: {
         labId: group.labId,
         timetableEntry: {
+          ...yearScopeFilter(academicYearId),
           day: data.day,
           slotStart: { lte: data.slotStart + 1 },
           slotEnd: { gte: data.slotStart },
@@ -422,7 +449,7 @@ export const timetableService = {
         teacher: true,
         subject: true,
         room: true,
-        classSection: { include: { branch: true } },
+        classSection: { include: { branch: true, academicYear: true } },
         labGroups: { include: { teacher: true, subject: true, lab: true } }
       }
     });
@@ -431,7 +458,9 @@ export const timetableService = {
       throw new AppError("Timetable entry not found", 404, "NOT_FOUND");
     }
 
-
+    if (existing.classSection.academicYear.status === AcademicYearStatus.ARCHIVED) {
+      throw new AppError("Cannot modify timetable in an archived academic year", 403, "FORBIDDEN");
+    }
 
     await prisma.timetableEntry.delete({ where: { id } });
   },
@@ -443,7 +472,7 @@ export const timetableService = {
         teacher: true,
         subject: true,
         room: true,
-        classSection: { include: { branch: true } },
+        classSection: { include: { branch: true, academicYear: true } },
         labGroups: { include: { teacher: true, subject: true, lab: true } }
       }
     });
@@ -452,7 +481,9 @@ export const timetableService = {
       throw new AppError("Timetable entry not found", 404, "NOT_FOUND");
     }
 
-
+    if (existing.classSection.academicYear.status === AcademicYearStatus.ARCHIVED) {
+      throw new AppError("Cannot modify timetable in an archived academic year", 403, "FORBIDDEN");
+    }
 
     return prisma.$transaction(async (tx) => {
       await tx.timetableEntry.delete({ where: { id } });
@@ -470,6 +501,7 @@ export const timetableService = {
       where: { id: classSectionId },
       include: {
         branch: true,
+        academicYear: true,
       },
     });
 
@@ -499,19 +531,25 @@ export const timetableService = {
       branch: classSection.branch.name,
       year: classSection.year,
       semester: classSection.semester,
+      academicYear: classSection.academicYear.label,
       timetable: buildMatrix(entries),
     };
   },
 
-  async getTeacherSchedule(teacherId: number) {
+  async getTeacherSchedule(teacherId: number, academicYearId?: number) {
     const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } });
     if (!teacher) {
       throw new AppError("Teacher not found", 404, "NOT_FOUND");
     }
 
+    const yearFilter = academicYearId
+      ? { classSection: { academicYearId } }
+      : {};
+
     const theoryEntries = await prisma.timetableEntry.findMany({
       where: {
         teacherId,
+        ...yearFilter,
       },
       include: {
         classSection: {
@@ -524,7 +562,10 @@ export const timetableService = {
     });
 
     const labEntries = await prisma.labGroupEntry.findMany({
-      where: { teacherId },
+      where: {
+        teacherId,
+        ...(academicYearId ? { timetableEntry: { classSection: { academicYearId } } } : {}),
+      },
       include: {
         subject: true,
         lab: true,
@@ -547,14 +588,21 @@ export const timetableService = {
     };
   },
 
-  async getRoomOccupancy(roomId: number) {
+  async getRoomOccupancy(roomId: number, academicYearId?: number) {
     const room = await prisma.room.findUnique({ where: { id: roomId } });
     if (!room) {
       throw new AppError("Room not found", 404, "NOT_FOUND");
     }
 
+    const yearFilter = academicYearId
+      ? { classSection: { academicYearId } }
+      : {};
+
     const entries = await prisma.timetableEntry.findMany({
-      where: { roomId },
+      where: {
+        roomId,
+        ...yearFilter,
+      },
       include: {
         classSection: {
           include: {
@@ -595,6 +643,9 @@ export const timetableService = {
       await db.teacher.deleteMany({});
       await db.classSection.deleteMany({});
       await db.branch.deleteMany({});
+      
+      // 6. Academic Years
+      await db.academicYear.deleteMany({});
       
       return { success: true, message: "Factory reset complete" };
     });

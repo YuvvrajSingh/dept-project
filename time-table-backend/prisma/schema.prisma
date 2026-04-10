@@ -6,6 +6,28 @@ datasource db {
   provider = "postgresql"
 }
 
+enum AcademicYearStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model AcademicYear {
+  id            Int                 @id @default(autoincrement())
+  label         String              @unique
+  startYear     Int
+  endYear       Int
+  startDate     DateTime            @db.Date
+  endDate       DateTime            @db.Date
+  status        AcademicYearStatus  @default(DRAFT)
+  isActive      Boolean             @default(false)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  classSections ClassSection[]
+
+  @@unique([startYear, endYear])
+}
+
 model Branch {
   id       Int            @id @default(autoincrement())
   name     String         @unique
@@ -13,15 +35,17 @@ model Branch {
 }
 
 model ClassSection {
-  id         Int              @id @default(autoincrement())
-  branchId   Int
-  year       Int
-  semester   Int              @default(1)
-  branch     Branch           @relation(fields: [branchId], references: [id])
-  subjects   ClassSubject[]
-  timetable  TimetableEntry[]
+  id              Int              @id @default(autoincrement())
+  academicYearId  Int
+  branchId        Int
+  year            Int
+  semester        Int              @default(1)
+  academicYear    AcademicYear     @relation(fields: [academicYearId], references: [id])
+  branch          Branch           @relation(fields: [branchId], references: [id])
+  subjects        ClassSubject[]
+  timetable       TimetableEntry[]
 
-  @@unique([branchId, year, semester])
+  @@unique([academicYearId, branchId, year, semester])
 }
 
 model Subject {
