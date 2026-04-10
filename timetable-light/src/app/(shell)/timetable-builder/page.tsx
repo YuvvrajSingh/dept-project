@@ -291,11 +291,13 @@ function TimetableBuilderInner() {
                  const current = assigned.get(slot.subjectId) || 0;
                  assigned.set(slot.subjectId, current + 1);
               } else if (slot.type === "LAB") {
-                 const sId = Object.values(slot.groups)[0]?.subjectId || null;
-                 if (sId) {
-                    const current = assigned.get(sId) || 0;
-                    assigned.set(sId, current + 2); // LAB counts as 2 slots/credits
-                 }
+                 // Each group (A1/A2/A3) can teach a different subject — credit all
+                 Object.values(slot.groups).forEach(group => {
+                    const sId = group.subjectId;
+                    if (sId && assigned.has(sId)) {
+                       assigned.set(sId, (assigned.get(sId) || 0) + 2);
+                    }
+                 });
               }
            }
         });
@@ -442,6 +444,7 @@ function TimetableBuilderInner() {
               onEdit={() => setIsEditing(true)}
               onDeleteSuccess={() => {
                  setSelectedCell(null);
+                 setMatrix(null); // clear stale data immediately
                  timetableApi.getOccupancy(selectedClass).then(occ => setOccupancyMap(occ)).catch(() => {});
                  loadTimetable(selectedClass);
               }}
@@ -476,7 +479,7 @@ function TimetableBuilderInner() {
              <div className="flex-1 flex flex-col pt-6">
                 <h3 className="font-bold text-sm text-on-surface mb-4 uppercase tracking-wider flex items-center gap-2">
                    <span className="material-symbols-outlined text-[16px] text-tertiary">inventory_2</span>
-                   Unassigned Subjects
+                   Unscheduled Subjects
                 </h3>
                 <div className="space-y-3 overflow-y-auto pr-2 pb-20">
                    {unassignedSubjects.map(s => (
@@ -491,7 +494,7 @@ function TimetableBuilderInner() {
                          className="flex items-center justify-between p-3 bg-surface-container-low border border-outline-variant/30 rounded-lg shadow-sm hover:border-tertiary cursor-grab active:cursor-grabbing hover:shadow-md transition-all"
                       >
                          <div>
-                            <div className="font-bold text-sm text-on-surface leading-tight">{s.code}</div>
+                            <div className="font-bold text-sm text-on-surface leading-tight">{s.abbreviation ?? s.code}</div>
                             <div className="text-[10px] text-on-surface-variant font-medium mt-0.5">{s.name}</div>
                             <div className="text-[9px] font-bold tracking-widest text-on-tertiary-container mt-2">
                                {s.type === 'THEORY' ? 'THEORY' : 'LAB'}
@@ -499,7 +502,7 @@ function TimetableBuilderInner() {
                          </div>
                          <div className="flex flex-col items-end">
                             <div className="bg-tertiary-container text-on-tertiary-container text-xs font-black px-2 py-1 rounded-md">
-                               {s.required - s.assigned} left
+                               {s.required - s.assigned} hrs left
                             </div>
                          </div>
                       </div>
@@ -512,10 +515,10 @@ function TimetableBuilderInner() {
              <div className="flex flex-col items-center justify-center flex-1 text-center border-2 border-dashed border-outline-variant/30 rounded-xl bg-surface-container-lowest/50 text-on-surface-variant mt-6">
                <span className="material-symbols-outlined text-4xl mb-4 text-emerald-500 opacity-80">task_alt</span>
                <div className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-2">
-                 All Caught Up
+                 All Scheduled
                </div>
                <div className="text-[10px] font-medium mx-8 opacity-70">
-                 Every required subject and lab for this class section has been successfully assigned to the timetable.
+                 Every subject for this class section has been placed in the timetable.
                </div>
              </div>
           )}
