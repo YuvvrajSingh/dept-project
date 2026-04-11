@@ -126,16 +126,16 @@ function TimetableViewsInner() {
       const mappedLabs = e.labEntries.map((l: any) => ({
         id: l.id + 100000,
         day: l.timetableEntry.day,
-        slotStart: l.timetableEntry.slotStart,
-        slotEnd: l.timetableEntry.slotEnd,
-        entryType: "LAB",
+        slot: l.timetableEntry.slot,
+        slotId: l.timetableEntry.slotId,
+        entryType: "LAB" as const,
         subject: l.subject ?? l.timetableEntry.subject,
         room: l.lab,
         teacher: e.teacher,
         classSection: l.timetableEntry.classSection
       }));
       const allEntries = [...e.theoryEntries, ...mappedLabs].sort((a, b) => {
-        if (a.day === b.day) return a.slotStart - b.slotStart;
+        if (a.day === b.day) return a.slot.order - b.slot.order;
         return a.day - b.day;
       });
       setEntries(allEntries as any);
@@ -374,10 +374,13 @@ function TimetableViewsInner() {
               {entries.map((e) => (
                 <tr key={e.id} className="hover:bg-surface-container-lowest transition-colors">
                   <td className="px-6 py-4 text-sm font-bold">{DAY_LABELS[e.day]}</td>
-                  <td className="px-6 py-4 text-sm">{SLOT_TIMES[e.slotStart]?.label}{e.slotEnd !== e.slotStart ? `-${SLOT_TIMES[e.slotEnd]?.label}` : ""}</td>
+                  <td className="px-6 py-4 text-sm">
+                    {SLOT_TIMES[e.slot?.order]?.label}
+                    {e.entryType === "LAB" ? `–${SLOT_TIMES[e.slot?.order + 1]?.label}` : ""}
+                  </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-0.5 text-[9px] font-bold rounded uppercase ${
-                      e.entryType === "THEORY" ? "bg-primary-fixed text-on-primary-fixed-variant" : "bg-tertiary-fixed text-on-tertiary-fixed-variant"
+                      e.entryType === "LAB" ? "bg-tertiary-fixed text-on-tertiary-fixed-variant" : "bg-primary-fixed text-on-primary-fixed-variant"
                     }`}>{e.entryType}</span>
                   </td>
                   <td className="px-6 py-4 text-sm font-bold whitespace-nowrap text-on-surface-variant">

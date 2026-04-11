@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { EntryType } from "@prisma/client";
+import { TimetableEntryType } from "@prisma/client";
 import { prisma } from "../prisma/client";
 import { timetableService } from "../services/timetable.service";
 import { pdfService } from "../services/pdf.service";
@@ -18,7 +18,7 @@ export const timetableController = {
 
   async createEntry(req: Request, res: Response, next: NextFunction) {
     try {
-      if (req.body.entryType === EntryType.LAB) {
+      if (req.body.entryType === TimetableEntryType.LAB) {
         const data = await timetableService.validateAndCreateLabEntry(req.body);
         res.status(201).json(data);
         return;

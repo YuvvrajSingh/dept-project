@@ -18,8 +18,11 @@ const assertTeacherExists = async (teacherId: number) => {
 };
 
 export const teacherService = {
-  listTeachers() {
-    return prisma.teacher.findMany({ orderBy: { id: "asc" } });
+  listTeachers(includeInactive = false) {
+    return prisma.teacher.findMany({
+      where: includeInactive ? undefined : { isActive: true },
+      orderBy: { name: "asc" },
+    });
   },
 
   async getTeacherById(id: number) {
@@ -46,7 +49,19 @@ export const teacherService = {
 
   async deleteTeacher(id: number) {
     await assertTeacherExists(id);
+    // Hard delete is blocked by Restrict on LabGroupEntry if the teacher has active lab entries.
+    // Use deactivateTeacher for safe archival instead.
     await prisma.teacher.delete({ where: { id } });
+  },
+
+  async deactivateTeacher(id: number) {
+    await assertTeacherExists(id);
+    return prisma.teacher.update({ where: { id }, data: { isActive: false } });
+  },
+
+  async reactivateTeacher(id: number) {
+    await assertTeacherExists(id);
+    return prisma.teacher.update({ where: { id }, data: { isActive: true } });
   },
 
   async assignSubject(teacherId: number, subjectId: number) {
@@ -111,7 +126,7 @@ export const teacherService = {
         subject: true,
         room: true,
       },
-      orderBy: [{ day: "asc" }, { slotStart: "asc" }],
+      orderBy: [{ day: "asc" }, { slot: { order: "asc" } }],
     });
   },
 };

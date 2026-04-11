@@ -6,44 +6,96 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
 enum AcademicYearStatus {
   DRAFT
   ACTIVE
   ARCHIVED
 }
 
+enum SubjectType {
+  THEORY
+  LAB
+}
+
+// Renamed from EntryType; expanded to support future scheduling types.
+enum TimetableEntryType {
+  LECTURE
+  LAB
+}
+
+// Typed notification categories — replaces the plain String column.
+enum NotificationLogType {
+  TIMETABLE_CHANGE
+  CANCELLATION
+  SUBSTITUTION
+}
+
+// ─── Core Lookup Tables ───────────────────────────────────────────────────────
+
 model AcademicYear {
-  id            Int                 @id @default(autoincrement())
-  label         String              @unique
+  id            Int                @id @default(autoincrement())
+  label         String             @unique
   startYear     Int
   endYear       Int
-  startDate     DateTime            @db.Date
-  endDate       DateTime            @db.Date
-  status        AcademicYearStatus  @default(DRAFT)
-  isActive      Boolean             @default(false)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  startDate     DateTime           @db.Date
+  endDate       DateTime           @db.Date
+  status        AcademicYearStatus @default(DRAFT)
+  isActive      Boolean            @default(false)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   classSections ClassSection[]
 
   @@unique([startYear, endYear])
 }
 
+// Branch is a simple organizational label — no Department or HOD complexity.
 model Branch {
   id       Int            @id @default(autoincrement())
   name     String         @unique
   sections ClassSection[]
 }
 
+// Replaces raw slotStart/slotEnd integers on TimetableEntry.
+// These 6 rows must be seeded before any TimetableEntry can be created.
+model Slot {
+  id               Int              @id @default(autoincrement())
+  label            String           @unique // "I", "II", "III", "IV", "V", "VI"
+  order            Int              @unique // 1–6; used for stable sort and conflict resolution
+  startTime        DateTime         @db.Time
+  endTime          DateTime         @db.Time
+  timetableEntries TimetableEntry[]
+}
+
+model Room {
+  id               Int              @id @default(autoincrement())
+  name             String           @unique
+  capacity         Int              @default(60)
+  timetableEntries TimetableEntry[]
+}
+
+model Lab {
+  id              Int             @id @default(autoincrement())
+  name            String          @unique
+  capacity        Int             @default(20)
+  labGroupEntries LabGroupEntry[]
+}
+
+// ─── Academic Entities ────────────────────────────────────────────────────────
+
 model ClassSection {
-  id              Int              @id @default(autoincrement())
-  academicYearId  Int
-  branchId        Int
-  year            Int
-  semester        Int              @default(1)
-  academicYear    AcademicYear     @relation(fields: [academicYearId], references: [id])
-  branch          Branch           @relation(fields: [branchId], references: [id])
-  subjects        ClassSubject[]
-  timetable       TimetableEntry[]
+  id             Int              @id @default(autoincrement())
+  academicYearId Int
+  branchId       Int
+  year           Int
+  semester       Int              @default(1)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  academicYear   AcademicYear     @relation(fields: [academicYearId], references: [id])
+  branch         Branch           @relation(fields: [branchId], references: [id])
+  subjects       ClassSubject[]
+  timetable      TimetableEntry[]
 
   @@unique([academicYearId, branchId, year, semester])
 }
@@ -55,15 +107,15 @@ model Subject {
   abbreviation     String            @default("")
   type             SubjectType
   creditHours      Int
+  // Soft delete: set false to archive. Do not hard-delete active subjects —
+  // LabGroupEntry and TimetableEntry use Restrict which will block the delete.
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   teacherSubjects  TeacherSubject[]
   classSubjects    ClassSubject[]
   timetableEntries TimetableEntry[]
   labGroupEntries  LabGroupEntry[]
-}
-
-enum SubjectType {
-  THEORY
-  LAB
 }
 
 model Teacher {
@@ -71,10 +123,18 @@ model Teacher {
   name             String
   abbreviation     String            @unique
   email            String?
+  // Soft delete: set false to archive. Hard delete is blocked by Restrict
+  // on LabGroupEntry (historical lab data must not lose its teacher reference).
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   teacherSubjects  TeacherSubject[]
   timetableEntries TimetableEntry[]
   labGroupEntries  LabGroupEntry[]
+  notificationLogs NotificationLog[]
 }
+
+// ─── Junction Tables ─────────────────────────────────────────────────────────
 
 model TeacherSubject {
   id        Int     @id @default(autoincrement())
@@ -96,64 +156,64 @@ model ClassSubject {
   @@unique([classSectionId, subjectId])
 }
 
-model Room {
-  id               Int              @id @default(autoincrement())
-  name             String           @unique
-  capacity         Int              @default(60)
-  timetableEntries TimetableEntry[]
-}
-
-model Lab {
-  id              Int             @id @default(autoincrement())
-  name            String          @unique
-  capacity        Int             @default(20)
-  labGroupEntries LabGroupEntry[]
-}
+// ─── Timetable Core ───────────────────────────────────────────────────────────
 
 model TimetableEntry {
-  id             Int             @id @default(autoincrement())
+  id             Int                @id @default(autoincrement())
   classSectionId Int
-  day            Int
-  slotStart      Int
-  slotEnd        Int
-  entryType      EntryType
+  slotId         Int                // FK to Slot — replaces raw slotStart/slotEnd integers
+  day            Int                // 1 = Monday … 6 = Saturday
+  entryType      TimetableEntryType
+  // subjectId is nullable (LAB entries set it null; lab group subjects live on LabGroupEntry).
+  // Restrict means: if a subject IS attached, you cannot delete it — use isActive=false instead.
   subjectId      Int?
   teacherId      Int?
   roomId         Int?
-  classSection   ClassSection    @relation(fields: [classSectionId], references: [id])
-  subject        Subject?        @relation(fields: [subjectId], references: [id])
-  teacher        Teacher?        @relation(fields: [teacherId], references: [id])
-  room           Room?           @relation(fields: [roomId], references: [id])
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  classSection   ClassSection       @relation(fields: [classSectionId], references: [id], onDelete: Cascade)
+  slot           Slot               @relation(fields: [slotId], references: [id], onDelete: Restrict)
+  subject        Subject?           @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  teacher        Teacher?           @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  room           Room?              @relation(fields: [roomId], references: [id], onDelete: SetNull)
   labGroups      LabGroupEntry[]
+  notificationLogs NotificationLog[]
 
-  @@unique([classSectionId, day, slotStart])
-}
-
-enum EntryType {
-  THEORY
-  LAB
+  // A class section cannot have two entries in the same day+slot.
+  @@unique([classSectionId, day, slotId])
+  // Composite indexes for fast teacher and room conflict lookups (app-level checks).
+  @@index([teacherId, day, slotId])
+  @@index([roomId, day, slotId])
 }
 
 model LabGroupEntry {
   id               Int            @id @default(autoincrement())
   timetableEntryId Int
-  groupName        String
-  subjectId        Int?
+  groupName        String         // "A1", "A2", "A3"
+  subjectId        Int            // Non-nullable: every lab group must have a subject
   labId            Int
   teacherId        Int
   timetableEntry   TimetableEntry @relation(fields: [timetableEntryId], references: [id], onDelete: Cascade)
-  subject          Subject?       @relation(fields: [subjectId], references: [id])
-  lab              Lab            @relation(fields: [labId], references: [id])
-  teacher          Teacher        @relation(fields: [teacherId], references: [id])
+  // Restrict prevents deleting subjects/labs/teachers referenced in historical lab data.
+  // Use isActive=false on Teacher/Subject for soft archival instead.
+  subject          Subject        @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  lab              Lab            @relation(fields: [labId], references: [id], onDelete: Restrict)
+  teacher          Teacher        @relation(fields: [teacherId], references: [id], onDelete: Restrict)
 }
 
+// ─── Notifications ────────────────────────────────────────────────────────────
+
 model NotificationLog {
-  id               Int            @id @default(autoincrement())
+  id               Int                 @id @default(autoincrement())
   timetableEntryId Int
-  teacherId        Int
-  type             String         // "REMINDER" or "CANCELLATION"
-  date             DateTime       @db.Date
-  createdAt        DateTime       @default(now())
+  // teacherId is nullable: logs are historical records and must survive teacher deletion.
+  // SetNull preserves the audit trail; the log shows what happened even if the teacher is gone.
+  teacherId        Int?
+  type             NotificationLogType
+  date             DateTime            @db.Date
+  createdAt        DateTime            @default(now())
+  timetableEntry   TimetableEntry      @relation(fields: [timetableEntryId], references: [id], onDelete: Cascade)
+  teacher          Teacher?            @relation(fields: [teacherId], references: [id], onDelete: SetNull)
 
   @@unique([timetableEntryId, teacherId, type, date])
 }

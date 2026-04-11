@@ -131,7 +131,7 @@ export const timetableApi = {
     classSectionId: number;
     day: number;
     slotStart?: number;
-    entryType: "THEORY" | "LAB";
+    entryType: "LECTURE" | "LAB";
     subjectId: number;
     teacherId?: number;
     roomId?: number;

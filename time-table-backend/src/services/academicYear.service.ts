@@ -193,8 +193,7 @@ export const academicYearService = {
             data: {
               classSectionId: newClass.id,
               day: entry.day,
-              slotStart: entry.slotStart,
-              slotEnd: entry.slotEnd,
+              slotId: entry.slotId, // Slot rows are static config shared across academic years
               entryType: entry.entryType,
               subjectId: entry.subjectId,
               teacherId: entry.teacherId,

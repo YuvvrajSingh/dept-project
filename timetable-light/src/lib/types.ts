@@ -84,9 +84,9 @@ export interface TimetableEntry {
   id: number;
   classSectionId: number;
   day: number;
-  slotStart: number;
-  slotEnd: number;
-  entryType: "THEORY" | "LAB";
+  slotId: number;
+  slot: { order: number; label: string; startTime: string; endTime: string };
+  entryType: "LECTURE" | "LAB";
   subjectId: number;
   teacherId?: number;
   roomId?: number;

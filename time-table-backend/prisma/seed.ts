@@ -1,26 +1,24 @@
-/// <reference types="node" />
-
+import "dotenv/config";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, SubjectType } from "@prisma/client";
 
-const prisma = new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL is not set");
 
-export const SLOT_TIMES = {
-  1: { label: "I", start: "10:00", end: "10:55" },
-  2: { label: "II", start: "10:55", end: "11:50" },
-  3: { label: "III", start: "11:50", end: "12:45" },
-  4: { label: "IV", start: "14:00", end: "14:55" },
-  5: { label: "V", start: "14:55", end: "15:50" },
-  6: { label: "VI", start: "15:50", end: "16:45" },
-} as const;
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
 
-export const DAY_LABELS = {
-  1: "Monday",
-  2: "Tuesday",
-  3: "Wednesday",
-  4: "Thursday",
-  5: "Friday",
-  6: "Saturday",
-} as const;
+// Slot definitions are the single source of truth for time periods.
+// Keep in sync with src/utils/timetableConstants.ts.
+// These rows must exist before any TimetableEntry can be created (FK constraint).
+const SLOTS = [
+  { label: "I",   order: 1, startTime: new Date("1970-01-01T10:00:00Z"), endTime: new Date("1970-01-01T10:55:00Z") },
+  { label: "II",  order: 2, startTime: new Date("1970-01-01T10:55:00Z"), endTime: new Date("1970-01-01T11:50:00Z") },
+  { label: "III", order: 3, startTime: new Date("1970-01-01T11:50:00Z"), endTime: new Date("1970-01-01T12:45:00Z") },
+  { label: "IV",  order: 4, startTime: new Date("1970-01-01T14:00:00Z"), endTime: new Date("1970-01-01T14:55:00Z") },
+  { label: "V",   order: 5, startTime: new Date("1970-01-01T14:55:00Z"), endTime: new Date("1970-01-01T15:50:00Z") },
+  { label: "VI",  order: 6, startTime: new Date("1970-01-01T15:50:00Z"), endTime: new Date("1970-01-01T16:45:00Z") },
+];
 
 const BRANCH_NAMES = ["CSE", "IT", "AI"];
 const YEARS = [2, 3, 4];
@@ -55,6 +53,8 @@ const SUBJECTS = [
 ];
 
 async function main() {
+  // ── 1. Clear dependent tables in FK-safe order ──────────────────────────────
+  await prisma.notificationLog.deleteMany();
   await prisma.labGroupEntry.deleteMany();
   await prisma.timetableEntry.deleteMany();
   await prisma.teacherSubject.deleteMany();
@@ -65,62 +65,74 @@ async function main() {
   await prisma.branch.deleteMany();
   await prisma.room.deleteMany();
   await prisma.lab.deleteMany();
+  await prisma.slot.deleteMany();
+  await prisma.academicYear.deleteMany();
 
+  // ── 2. Slots — must be created before any TimetableEntry (FK: slotId) ───────
+  await prisma.slot.createMany({ data: SLOTS, skipDuplicates: true });
+  console.log("✓ Slots seeded");
+
+  // ── 3. Academic Year ─────────────────────────────────────────────────────────
+  const academicYear = await prisma.academicYear.create({
+    data: {
+      label: "2025-2026",
+      startYear: 2025,
+      endYear: 2026,
+      startDate: new Date("2025-07-01"),
+      endDate: new Date("2026-05-31"),
+      status: "ACTIVE",
+      isActive: true,
+    },
+  });
+  console.log("✓ Academic year seeded");
+
+  // ── 4. Branches ──────────────────────────────────────────────────────────────
   const branches = await Promise.all(
-    BRANCH_NAMES.map((name) =>
-      prisma.branch.create({
-        data: { name },
-      }),
-    ),
+    BRANCH_NAMES.map((name) => prisma.branch.create({ data: { name } })),
   );
+  console.log("✓ Branches seeded");
 
+  // ── 5. Class Sections ────────────────────────────────────────────────────────
   for (const branch of branches) {
     for (const year of YEARS) {
+      const semester = year * 2 - 1; // year 2 → sem 3, year 3 → sem 5, year 4 → sem 7
       await prisma.classSection.create({
         data: {
           branchId: branch.id,
+          academicYearId: academicYear.id,
           year,
+          semester,
         },
       });
     }
   }
+  console.log("✓ Class sections seeded");
 
+  // ── 6. Rooms & Labs ──────────────────────────────────────────────────────────
   await Promise.all(
     Array.from({ length: 7 }).map((_, index) =>
-      prisma.room.create({
-        data: {
-          name: `R-${index + 1}`,
-          capacity: 60,
-        },
-      }),
+      prisma.room.create({ data: { name: `R-${index + 1}`, capacity: 60 } }),
     ),
   );
 
   await Promise.all(
     Array.from({ length: 5 }).map((_, index) =>
-      prisma.lab.create({
-        data: {
-          name: `LAB-${index + 1}`,
-          capacity: 20,
-        },
-      }),
+      prisma.lab.create({ data: { name: `LAB-${index + 1}`, capacity: 20 } }),
     ),
   );
+  console.log("✓ Rooms and labs seeded");
 
-  await prisma.teacher.createMany({
-    data: TEACHERS,
-  });
+  // ── 7. Teachers & Subjects ───────────────────────────────────────────────────
+  await prisma.teacher.createMany({ data: TEACHERS });
+  await prisma.subject.createMany({ data: SUBJECTS });
+  console.log("✓ Teachers and subjects seeded");
 
-  await prisma.subject.createMany({
-    data: SUBJECTS,
-  });
-
-  console.log("Seed completed successfully");
+  console.log("\nSeed completed successfully ✓");
 }
 
 main()
   .catch((error) => {
-    console.error("Seed failed", error);
+    console.error("Seed failed:", error);
     process.exitCode = 1;
   })
   .finally(async () => {

@@ -135,7 +135,7 @@ export function EntryForm({
           classSectionId,
           day: parseInt(day),
           slotStart: parseInt(slot),
-          entryType: "THEORY" as const,
+          entryType: "LECTURE" as const,
           subjectId: parseInt(subjectId),
           teacherId: parseInt(teacherId),
           roomId: parseInt(roomId),

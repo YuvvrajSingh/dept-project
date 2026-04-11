@@ -1,4 +1,4 @@
-import { PrismaClient, EntryType, AcademicYearStatus } from "@prisma/client";
+import { PrismaClient, TimetableEntryType, AcademicYearStatus } from "@prisma/client";
 import { prisma } from "../prisma/client";
 import { AppError } from "../utils/AppError";
 import { LAB_GROUPS } from "../utils/timetableConstants";
@@ -13,7 +13,6 @@ export const autoSchedulerService = {
 
     if (!classSection) throw new AppError("Class section not found", 404, "NOT_FOUND");
 
-    // Check if academic year is archived
     const academicYear = await prisma.academicYear.findUnique({ where: { id: classSection.academicYearId } });
     if (!academicYear) throw new AppError("Academic year not found", 404, "NOT_FOUND");
     if (academicYear.status === AcademicYearStatus.ARCHIVED) {
@@ -26,12 +25,25 @@ export const autoSchedulerService = {
       throw new AppError("No subjects assigned to this class section", 400, "VALIDATION_ERROR");
     }
 
-    // 2. Fetch Global Resources and Relationships
+    // 2. Fetch Slot table and build the orderToId lookup map
+    // The scheduler works internally with slot order integers (1–6), same as before.
+    // When writing to DB, it uses slotOrderToId[order] to get the FK.
+    const allSlots = await prisma.slot.findMany({ orderBy: { order: "asc" } });
+    const slotOrderToId = new Map<number, number>(allSlots.map((s) => [s.order, s.id]));
+
+    const resolveSlotId = (order: number): number => {
+      const id = slotOrderToId.get(order);
+      if (!id) throw new AppError(`Slot order ${order} not found in DB`, 500, "INTERNAL_ERROR");
+      return id;
+    };
+
+    // 3. Fetch Global Resources and Relationships
     const allTeachers = await prisma.teacher.findMany({ include: { teacherSubjects: true } });
     const allRooms = await prisma.room.findMany();
     const allLabs = await prisma.lab.findMany();
 
-    const teacherMap = new Map<number, number[]>(); // subjectId -> available teacherIds
+    // subjectId → available teacherIds
+    const teacherMap = new Map<number, number[]>();
     for (const t of allTeachers) {
       for (const ts of t.teacherSubjects) {
         if (!teacherMap.has(ts.subjectId)) teacherMap.set(ts.subjectId, []);
@@ -39,8 +51,7 @@ export const autoSchedulerService = {
       }
     }
 
-    // 3. Global Occupancy Matrices
-    // Boolean grids: arr[id][day][slot]
+    // 4. Global Occupancy Matrices indexed by [id][day][slotOrder]
     const teacherOcc: Record<number, Record<number, Record<number, boolean>>> = {};
     const roomOcc: Record<number, Record<number, Record<number, boolean>>> = {};
     const labOcc: Record<number, Record<number, Record<number, boolean>>> = {};
@@ -49,215 +60,217 @@ export const autoSchedulerService = {
     for (const r of allRooms) roomOcc[r.id] = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{}, 6:{} };
     for (const l of allLabs) labOcc[l.id] = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{}, 6:{} };
 
-    // Fetch existing entries EXCLUDING the current class but WITHIN the same academic year
+    // Fetch existing entries EXCLUDING the current class but WITHIN the same academic year.
+    // Include slot to get the order value for the occupancy matrix.
     const existingEntries = await prisma.timetableEntry.findMany({
       where: {
         classSectionId: { not: classSectionId },
         classSection: { academicYearId },
       },
-      include: { labGroups: true },
+      include: { slot: true, labGroups: true },
     });
 
     for (const entry of existingEntries) {
       const d = entry.day;
-      const s1 = entry.slotStart;
-      const s2 = entry.slotEnd; // LABs are e.g. 1 and 2
+      const startOrder = entry.slot.order;
+      // LAB entries occupy 2 consecutive slots; theory entries occupy just 1.
+      const slotOrders = entry.entryType === "LAB"
+        ? [startOrder, startOrder + 1]
+        : [startOrder];
 
-      for (let s = s1; s <= s2; s++) {
-        if (entry.entryType === "THEORY") {
-          if (entry.teacherId) teacherOcc[entry.teacherId][d][s] = true;
-          if (entry.roomId) roomOcc[entry.roomId][d][s] = true;
-        } else if (entry.entryType === "LAB") {
+      for (const s of slotOrders) {
+        if (entry.entryType === "LAB") {
           for (const lg of entry.labGroups) {
-            teacherOcc[lg.teacherId][d][s] = true;
-            labOcc[lg.labId][d][s] = true;
+            if (teacherOcc[lg.teacherId]) teacherOcc[lg.teacherId][d][s] = true;
+            if (labOcc[lg.labId]) labOcc[lg.labId][d][s] = true;
           }
+        } else {
+          if (entry.teacherId && teacherOcc[entry.teacherId]) teacherOcc[entry.teacherId][d][s] = true;
+          if (entry.roomId && roomOcc[entry.roomId]) roomOcc[entry.roomId][d][s] = true;
         }
       }
     }
 
-    // 4. Queues for the chosen class
+    // 5. Build work queues for the chosen class
     const unplacedTheories = classSubjects
       .filter((s) => s.type === "THEORY")
       .map((s) => ({ subject: s, remaining: s.creditHours }));
 
+    // Each lab subject needs 3 group slots (A1, A2, A3)
     const labNeeds: { groupName: string; subject: any }[] = [];
-    const classLabSubjects = classSubjects.filter((s) => s.type === "LAB");
-    for (const subj of classLabSubjects) {
-      labNeeds.push({ groupName: "A1", subject: subj });
-      labNeeds.push({ groupName: "A2", subject: subj });
-      labNeeds.push({ groupName: "A3", subject: subj });
+    for (const subj of classSubjects.filter((s) => s.type === "LAB")) {
+      for (const groupName of LAB_GROUPS) {
+        labNeeds.push({ groupName, subject: subj });
+      }
     }
 
     const generatedTheoryPayloads: any[] = [];
     const generatedLabPayloads: any[] = [];
     const auditReport: string[] = [];
 
-    // Local tracker rules
+    // Local occupancy tracker for this class
     const classOcc: Record<number, Record<number, boolean>> = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{}, 6:{} };
     const subjectsToday: Record<number, Record<number, number>> = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{}, 6:{} };
 
-    // Lab valid start slots
-    const validLabStarts = [1, 2, 4, 5];
+    const validLabStarts = [1, 2, 4, 5]; // LAB can start at these orders (needs order+1 to exist)
 
-    // Helper: Find 1 free room
-    const findFreeRoom = (d: number, s: number) => {
-      return allRooms.find((r) => !roomOcc[r.id][d][s]);
-    };
+    const findFreeRoom = (d: number, s: number) =>
+      allRooms.find((r) => !roomOcc[r.id][d][s]);
 
-    // Helper: Find 1 free teacher for theory
     const findFreeTeacher = (subjectId: number, d: number, s: number) => {
       const candidates = teacherMap.get(subjectId) || [];
       return candidates.find((tId) => !teacherOcc[tId][d][s]);
     };
 
-    // 5. Algorithm Core
+    // 6. Algorithm Core (two-pass: strict then relaxed)
     for (const relaxed of [false, true]) {
       for (const d of [1, 2, 3, 4, 5, 6]) {
         for (const s of [1, 2, 3, 4, 5, 6]) {
           if (classOcc[d][s]) continue;
 
-          // Attempt LAB mapping
+          // Attempt LAB placement
           if (!relaxed && validLabStarts.includes(s) && labNeeds.length > 0 && !classOcc[d][s + 1]) {
             const selectedNeeds = [];
-            const usedGroups = new Set();
-            const assignedLabs = new Set();
-            const assignedTeachers = new Set();
+            const usedGroups = new Set<string>();
+            const assignedLabs = new Set<number>();
+            const assignedTeachers = new Set<number>();
 
             for (let i = 0; i < labNeeds.length; i++) {
               const need = labNeeds[i];
               if (usedGroups.has(need.groupName)) continue;
-              
+
               const candidates = teacherMap.get(need.subject.id) || [];
-              const teacher = candidates.find(tId => 
-                !teacherOcc[tId][d][s] && !teacherOcc[tId][d][s+1] && !assignedTeachers.has(tId)
+              const teacher = candidates.find(
+                (tId) => !teacherOcc[tId][d][s] && !teacherOcc[tId][d][s + 1] && !assignedTeachers.has(tId),
               );
-              
-              const lab = allLabs.find(l => 
-                !labOcc[l.id][d][s] && !labOcc[l.id][d][s+1] && !assignedLabs.has(l.id)
+              const lab = allLabs.find(
+                (l) => !labOcc[l.id][d][s] && !labOcc[l.id][d][s + 1] && !assignedLabs.has(l.id),
               );
 
               if (teacher && lab) {
-                selectedNeeds.push({
-                  needId: i,
-                  ...need,
-                  teacherId: teacher,
-                  labId: lab.id
-                });
+                selectedNeeds.push({ needId: i, ...need, teacherId: teacher, labId: lab.id });
                 usedGroups.add(need.groupName);
                 assignedTeachers.add(teacher);
                 assignedLabs.add(lab.id);
-                
-                // User specifies exactly 2 parallel labs max. Ask them if they ever want 3? 
-                // "only 2 labs of a class section parallely"
-                if (selectedNeeds.length === 2) break; 
+                if (selectedNeeds.length === 2) break;
               }
             }
 
             if (selectedNeeds.length > 0) {
               generatedLabPayloads.push({
-                classSectionId, day: d, slotStart: s, slotEnd: s + 1, entryType: "LAB",
-                labGroups: selectedNeeds.map(n => ({
+                classSectionId,
+                day: d,
+                slotOrder: s, // stored as order; resolved to slotId at write time
+                entryType: "LAB",
+                labGroups: selectedNeeds.map((n) => ({
                   groupName: n.groupName,
                   subjectId: n.subject.id,
                   labId: n.labId,
-                  teacherId: n.teacherId
-                }))
+                  teacherId: n.teacherId,
+                })),
               });
-              
+
               for (const n of selectedNeeds) {
                 teacherOcc[n.teacherId][d][s] = true;
-                teacherOcc[n.teacherId][d][s+1] = true;
+                teacherOcc[n.teacherId][d][s + 1] = true;
                 labOcc[n.labId][d][s] = true;
-                labOcc[n.labId][d][s+1] = true;
+                labOcc[n.labId][d][s + 1] = true;
               }
               classOcc[d][s] = true;
-              classOcc[d][s+1] = true;
-              
-              const indicesToRemove = selectedNeeds.map(n => n.needId).sort((a,b) => b-a);
+              classOcc[d][s + 1] = true;
+
+              const indicesToRemove = selectedNeeds.map((n) => n.needId).sort((a, b) => b - a);
               for (const idx of indicesToRemove) labNeeds.splice(idx, 1);
-              
-              continue; // Move to next slot
+
+              continue;
             }
           }
 
-          // Attempt THEORY mapping
+          // Attempt THEORY placement
           for (let i = 0; i < unplacedTheories.length; i++) {
             const theory = unplacedTheories[i];
             const alreadyToday = subjectsToday[d][theory.subject.id] || 0;
 
-            if (!relaxed && alreadyToday >= 1) continue; 
+            if (!relaxed && alreadyToday >= 1) continue;
 
             const room = findFreeRoom(d, s);
             const teacherId = findFreeTeacher(theory.subject.id, d, s);
 
             if (room && teacherId) {
               generatedTheoryPayloads.push({
-                classSectionId, day: d, slotStart: s, slotEnd: s, entryType: "THEORY",
-                subjectId: theory.subject.id, roomId: room.id, teacherId
+                classSectionId,
+                day: d,
+                slotOrder: s, // resolved to slotId at write time
+                entryType: "LECTURE",
+                subjectId: theory.subject.id,
+                roomId: room.id,
+                teacherId,
               });
 
               roomOcc[room.id][d][s] = true;
               teacherOcc[teacherId][d][s] = true;
               classOcc[d][s] = true;
-              
+
               subjectsToday[d][theory.subject.id] = alreadyToday + 1;
               theory.remaining--;
               if (theory.remaining === 0) unplacedTheories.splice(i, 1);
-              
-              break; 
+
+              break;
             }
           }
         }
       }
     }
 
-    // 6. Report Unplaced Components
+    // 7. Report Unplaced Components
     if (labNeeds.length > 0) {
-      auditReport.push(`Warning: Could not schedule ${labNeeds.length} individual lab group requirements due to lack of teachers/rooms.`);
+      auditReport.push(`Warning: Could not schedule ${labNeeds.length} individual lab group requirements due to lack of teachers/labs.`);
       for (const n of labNeeds) auditReport.push(`- Skipped Lab: Group ${n.groupName} for ${n.subject.name}`);
     }
-    
-    const failedTheories = unplacedTheories.filter(t => t.remaining > 0);
+
+    const failedTheories = unplacedTheories.filter((t) => t.remaining > 0);
     if (failedTheories.length > 0) {
-      auditReport.push(`Warning: Could not schedule the following theory hours due to Teacher/Room conflicts:`);
+      auditReport.push("Warning: Could not schedule the following theory hours due to Teacher/Room conflicts:");
       for (const t of failedTheories) auditReport.push(`- ${t.subject.name}: Missed ${t.remaining} periods.`);
     }
 
     if (auditReport.length === 0) {
-      auditReport.push(`Success! 100% of required classes for this section were completely scheduled. Generated ${generatedTheoryPayloads.length} theory slots and ${generatedLabPayloads.length} lab blocks.`);
+      auditReport.push(
+        `Success! 100% of required classes scheduled. Generated ${generatedTheoryPayloads.length} theory slots and ${generatedLabPayloads.length} lab blocks.`,
+      );
     }
 
-    // 7. Write to Database (Transaction)
+    // 8. Write to Database (Transaction) — resolve slotOrder → slotId here
     await prisma.$transaction(async (tx) => {
-      // Wipe old existing timetable for THIS class
       await tx.timetableEntry.deleteMany({ where: { classSectionId } });
 
-      // Insert Theories
       if (generatedTheoryPayloads.length > 0) {
-        await tx.timetableEntry.createMany({ data: generatedTheoryPayloads });
+        await tx.timetableEntry.createMany({
+          data: generatedTheoryPayloads.map((p) => ({
+            classSectionId: p.classSectionId,
+            day: p.day,
+            slotId: resolveSlotId(p.slotOrder), // resolve here, at write time
+            entryType: p.entryType,
+            subjectId: p.subjectId,
+            roomId: p.roomId,
+            teacherId: p.teacherId,
+          })),
+        });
       }
 
-      // Insert Labs (CreateMany doesn't support nested relations in Prisma easily, so map over create)
       for (const lab of generatedLabPayloads) {
         await tx.timetableEntry.create({
           data: {
             classSectionId: lab.classSectionId,
             day: lab.day,
-            slotStart: lab.slotStart,
-            slotEnd: lab.slotEnd,
+            slotId: resolveSlotId(lab.slotOrder), // resolve here
             entryType: lab.entryType,
-            labGroups: {
-              create: lab.labGroups
-            }
-          }
+            labGroups: { create: lab.labGroups },
+          },
         });
       }
     });
 
-    return {
-      success: true,
-      auditReport,
-    };
-  }
+    return { success: true, auditReport };
+  },
 };

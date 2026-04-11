@@ -1,18 +1,20 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { EntryType, AcademicYearStatus } from "@prisma/client";
+import { TimetableEntryType, AcademicYearStatus } from "@prisma/client";
 import { prisma } from "../prisma/client";
 import { AppError } from "../utils/AppError";
 import { buildMatrix } from "../utils/timetableMatrix";
-import { DAY_LABELS, LAB_GROUPS, SLOT_TIMES } from "../utils/timetableConstants";
+import { DAY_LABELS, LAB_GROUPS } from "../utils/timetableConstants";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
+
+// ─── Input Types ──────────────────────────────────────────────────────────────
+// All inputs use slotOrder (1–6 integer) which the service resolves to a slotId FK.
 
 type TheoryEntryInput = {
   classSectionId: number;
   day: number;
-  slotStart: number;
-  slotEnd?: number;
-  entryType?: EntryType;
+  slotStart: number; // 1–6 integer sent by the frontend; resolved to slotId internally
+  entryType?: TimetableEntryType;
   subjectId: number;
   teacherId: number;
   roomId: number;
@@ -28,11 +30,29 @@ type LabGroupInput = {
 type LabEntryInput = {
   classSectionId: number;
   day: number;
-  slotStart: number;
-  slotEnd?: number;
-  entryType?: EntryType;
+  slotStart: number; // 1–6 integer sent by the frontend; the LAB occupies slotStart AND slotStart+1
+  entryType?: TimetableEntryType;
   labGroups: LabGroupInput[];
 };
+
+// ─── Slot Resolution ──────────────────────────────────────────────────────────
+
+/**
+ * Resolves a slot by its order value (1–6) and returns its id.
+ * Throws 400 if the order is out of range or no matching Slot row exists.
+ */
+const resolveSlotId = async (db: DbClient, slotOrder: number): Promise<number> => {
+  if (!Number.isInteger(slotOrder) || slotOrder < 1 || slotOrder > 6) {
+    throw new AppError("slotOrder must be an integer between 1 and 6", 400, "VALIDATION_ERROR");
+  }
+  const slot = await (db as PrismaClient).slot.findUnique({ where: { order: slotOrder } });
+  if (!slot) {
+    throw new AppError(`Slot with order ${slotOrder} not found`, 500, "INTERNAL_ERROR");
+  }
+  return slot.id;
+};
+
+// ─── Validation Helpers ───────────────────────────────────────────────────────
 
 const assertDay = (day: number) => {
   if (!Number.isInteger(day) || day < 1 || day > 6) {
@@ -41,7 +61,7 @@ const assertDay = (day: number) => {
 };
 
 const getAcademicYearIdForClass = async (db: DbClient, classSectionId: number): Promise<number> => {
-  const cs = await db.classSection.findUnique({
+  const cs = await (db as PrismaClient).classSection.findUnique({
     where: { id: classSectionId },
     select: { academicYearId: true, academicYear: true },
   });
@@ -59,25 +79,19 @@ const assertClassAndSubjectPrereq = async (
   classSectionId: number,
   subjectId: number,
 ): Promise<void> => {
-  const classSection = await db.classSection.findUnique({ where: { id: classSectionId } });
+  const classSection = await (db as PrismaClient).classSection.findUnique({ where: { id: classSectionId } });
   if (!classSection) {
     throw new AppError("Class section not found", 404, "NOT_FOUND");
   }
 
-  const subject = await db.subject.findUnique({ where: { id: subjectId } });
+  const subject = await (db as PrismaClient).subject.findUnique({ where: { id: subjectId } });
   if (!subject) {
     throw new AppError("Subject not found", 404, "NOT_FOUND");
   }
 
-  const classSubject = await db.classSubject.findUnique({
-    where: {
-      classSectionId_subjectId: {
-        classSectionId,
-        subjectId,
-      },
-    },
+  const classSubject = await (db as PrismaClient).classSubject.findUnique({
+    where: { classSectionId_subjectId: { classSectionId, subjectId } },
   });
-
   if (!classSubject) {
     throw new AppError("Subject is not assigned to this class section", 422, "BUSINESS_RULE_VIOLATION");
   }
@@ -88,20 +102,14 @@ const assertTeacherSubjectPrereq = async (
   teacherId: number,
   subjectId: number,
 ): Promise<void> => {
-  const teacher = await db.teacher.findUnique({ where: { id: teacherId } });
+  const teacher = await (db as PrismaClient).teacher.findUnique({ where: { id: teacherId } });
   if (!teacher) {
     throw new AppError("Teacher not found", 404, "NOT_FOUND");
   }
 
-  const teacherSubject = await db.teacherSubject.findUnique({
-    where: {
-      teacherId_subjectId: {
-        teacherId,
-        subjectId,
-      },
-    },
+  const teacherSubject = await (db as PrismaClient).teacherSubject.findUnique({
+    where: { teacherId_subjectId: { teacherId, subjectId } },
   });
-
   if (!teacherSubject) {
     throw new AppError("Teacher is not assigned to this subject", 422, "BUSINESS_RULE_VIOLATION");
   }
@@ -109,27 +117,17 @@ const assertTeacherSubjectPrereq = async (
 
 const validateTheoryShape = (data: TheoryEntryInput) => {
   assertDay(data.day);
-
   if (!Number.isInteger(data.slotStart) || data.slotStart < 1 || data.slotStart > 6) {
     throw new AppError("slotStart must be between 1 and 6", 400, "VALIDATION_ERROR");
-  }
-
-  const slotEnd = data.slotEnd ?? data.slotStart;
-  if (slotEnd !== data.slotStart) {
-    throw new AppError("For THEORY entries, slotEnd must equal slotStart", 400, "VALIDATION_ERROR");
   }
 };
 
 const validateLabShape = (data: LabEntryInput) => {
   assertDay(data.day);
 
-  if (!Number.isInteger(data.slotStart) || data.slotStart < 1 || data.slotStart > 6) {
-    throw new AppError("slotStart must be between 1 and 6", 400, "VALIDATION_ERROR");
-  }
-
-  const slotEnd = data.slotEnd ?? (data.slotStart + 1);
-  if (slotEnd !== data.slotStart + 1) {
-    throw new AppError("For LAB entries, slotEnd must equal slotStart + 1", 400, "VALIDATION_ERROR");
+  if (!Number.isInteger(data.slotStart) || data.slotStart < 1 || data.slotStart > 5) {
+    // LABs occupy slotStart AND slotStart+1, so max start is 5
+    throw new AppError("slotStart for LAB must be between 1 and 5", 400, "VALIDATION_ERROR");
   }
 
   if (data.labGroups.length < 1 || data.labGroups.length > 3) {
@@ -140,21 +138,18 @@ const validateLabShape = (data: LabEntryInput) => {
   const uniqueNames = new Set(groupNames);
   const required = new Set(LAB_GROUPS);
 
-  if (uniqueNames.size !== groupNames.length || groupNames.some((name) => !required.has(name as (typeof LAB_GROUPS)[number]))) {
+  if (
+    uniqueNames.size !== groupNames.length ||
+    groupNames.some((name) => !required.has(name as (typeof LAB_GROUPS)[number]))
+  ) {
     throw new AppError("LAB group names must be unique and chosen from A1, A2, A3", 400, "VALIDATION_ERROR");
   }
 };
 
 const formatClassLabel = (
-  classSection?: {
-    year: number;
-    branch?: { name: string } | null;
-  } | null,
+  classSection?: { year: number; branch?: { name: string } | null } | null,
 ) => {
-  if (!classSection) {
-    return "Unknown class";
-  }
-
+  if (!classSection) return "Unknown class";
   const branchName = classSection.branch?.name ?? "Unknown";
   return `${branchName} Year ${classSection.year}`;
 };
@@ -164,48 +159,42 @@ const yearScopeFilter = (academicYearId: number) => ({
   classSection: { academicYearId },
 });
 
+// ─── Core Write Operations ────────────────────────────────────────────────────
+
 const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
   validateTheoryShape(data);
   const academicYearId = await getAcademicYearIdForClass(db, data.classSectionId);
   await assertClassAndSubjectPrereq(db, data.classSectionId, data.subjectId);
   await assertTeacherSubjectPrereq(db, data.teacherId, data.subjectId);
 
-  const room = await db.room.findUnique({ where: { id: data.roomId } });
+  const slotId = await resolveSlotId(db, data.slotStart);
+
+  const room = await (db as PrismaClient).room.findUnique({ where: { id: data.roomId } });
   if (!room) {
     throw new AppError("Room not found", 404, "NOT_FOUND");
   }
 
-  const classConflict = await db.timetableEntry.findFirst({
-    where: {
-      classSectionId: data.classSectionId,
-      day: data.day,
-      slotStart: { lte: data.slotStart },
-      slotEnd: { gte: data.slotStart },
-    },
+  // Class-slot conflict (also enforced by DB unique constraint)
+  const classConflict = await (db as PrismaClient).timetableEntry.findFirst({
+    where: { classSectionId: data.classSectionId, day: data.day, slotId },
   });
-
   if (classConflict) {
     throw new AppError("Class section already has an entry at this slot", 409, "CONFLICT");
   }
 
-  const theoryTeacherConflict = await db.timetableEntry.findFirst({
+  // Teacher conflicts — check theory entries
+  const theoryTeacherConflict = await (db as PrismaClient).timetableEntry.findFirst({
     where: {
       ...yearScopeFilter(academicYearId),
       teacherId: data.teacherId,
       day: data.day,
-      slotStart: { lte: data.slotStart },
-      slotEnd: { gte: data.slotStart },
+      slotId,
     },
     include: {
       teacher: true,
-      classSection: {
-        include: {
-          branch: true,
-        },
-      },
+      classSection: { include: { branch: true } },
     },
   });
-
   if (theoryTeacherConflict?.teacher) {
     throw new AppError(
       `Teacher ${theoryTeacherConflict.teacher.abbreviation} is already scheduled on ${DAY_LABELS[data.day as keyof typeof DAY_LABELS]} slot ${data.slotStart} for ${formatClassLabel(theoryTeacherConflict.classSection)}`,
@@ -214,30 +203,32 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
     );
   }
 
-  const labTeacherConflict = await db.labGroupEntry.findFirst({
+  // Teacher conflicts — check if teacher is in a lab at this slot
+  const labStartSlotId = slotId;
+  // A lab that starts one slot before would also occupy this slot
+  const prevSlotOrder = data.slotStart - 1;
+  const prevSlotId = prevSlotOrder >= 1
+    ? await (db as PrismaClient).slot.findUnique({ where: { order: prevSlotOrder } }).then(s => s?.id)
+    : null;
+
+  const labSlotFilter = prevSlotId
+    ? { slotId: { in: [labStartSlotId, prevSlotId] } }
+    : { slotId: labStartSlotId };
+
+  const labTeacherConflict = await (db as PrismaClient).labGroupEntry.findFirst({
     where: {
       teacherId: data.teacherId,
       timetableEntry: {
         ...yearScopeFilter(academicYearId),
         day: data.day,
-        slotStart: { lte: data.slotStart },
-        slotEnd: { gte: data.slotStart },
+        ...labSlotFilter,
       },
     },
     include: {
       teacher: true,
-      timetableEntry: {
-        include: {
-          classSection: {
-            include: {
-              branch: true,
-            },
-          },
-        },
-      },
+      timetableEntry: { include: { classSection: { include: { branch: true } } } },
     },
   });
-
   if (labTeacherConflict?.teacher) {
     throw new AppError(
       `Teacher ${labTeacherConflict.teacher.abbreviation} already has a lab on ${DAY_LABELS[data.day as keyof typeof DAY_LABELS]} slot ${data.slotStart} for ${formatClassLabel(labTeacherConflict.timetableEntry.classSection)}`,
@@ -246,17 +237,16 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
     );
   }
 
-  const roomConflict = await db.timetableEntry.findFirst({
+  // Room conflict
+  const roomConflict = await (db as PrismaClient).timetableEntry.findFirst({
     where: {
       ...yearScopeFilter(academicYearId),
       roomId: data.roomId,
       day: data.day,
-      slotStart: { lte: data.slotStart },
-      slotEnd: { gte: data.slotStart },
+      slotId,
     },
     include: { room: true },
   });
-
   if (roomConflict?.room) {
     throw new AppError(
       `Room ${roomConflict.room.name} is already booked on ${DAY_LABELS[data.day as keyof typeof DAY_LABELS]} slot ${data.slotStart}`,
@@ -265,18 +255,18 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
     );
   }
 
-  return db.timetableEntry.create({
+  return (db as PrismaClient).timetableEntry.create({
     data: {
       classSectionId: data.classSectionId,
       day: data.day,
-      slotStart: data.slotStart,
-      slotEnd: data.slotStart,
-      entryType: EntryType.THEORY,
+      slotId,
+      entryType: TimetableEntryType.LECTURE,
       subjectId: data.subjectId,
       teacherId: data.teacherId,
       roomId: data.roomId,
     },
     include: {
+      slot: true,
       subject: true,
       teacher: true,
       room: true,
@@ -291,47 +281,43 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
   for (const group of data.labGroups) {
     await assertClassAndSubjectPrereq(db, data.classSectionId, group.subjectId);
     await assertTeacherSubjectPrereq(db, group.teacherId, group.subjectId);
-
-    const lab = await db.lab.findUnique({ where: { id: group.labId } });
+    const lab = await (db as PrismaClient).lab.findUnique({ where: { id: group.labId } });
     if (!lab) {
       throw new AppError(`Lab ${group.labId} not found`, 404, "NOT_FOUND");
     }
   }
 
-  const classConflict = await db.timetableEntry.findFirst({
+  // Resolve both slot IDs that the lab will occupy (slotStart and slotStart+1)
+  const startSlotId = await resolveSlotId(db, data.slotStart);
+  const endSlotId = await resolveSlotId(db, data.slotStart + 1);
+  const labSlotIds = [startSlotId, endSlotId];
+
+  // Class-slot conflict (both slots must be free)
+  const classConflict = await (db as PrismaClient).timetableEntry.findFirst({
     where: {
       classSectionId: data.classSectionId,
       day: data.day,
-      slotStart: { lte: data.slotStart + 1 },
-      slotEnd: { gte: data.slotStart },
+      slotId: { in: labSlotIds },
     },
   });
-
   if (classConflict) {
     throw new AppError("Class section already has an entry at this slot", 409, "CONFLICT");
   }
 
   for (const group of data.labGroups) {
-    const teacher = await db.teacher.findUnique({ where: { id: group.teacherId } });
-    const lab = await db.lab.findUnique({ where: { id: group.labId } });
+    const teacher = await (db as PrismaClient).teacher.findUnique({ where: { id: group.teacherId } });
+    const lab = await (db as PrismaClient).lab.findUnique({ where: { id: group.labId } });
 
-    const theoryTeacherConflict = await db.timetableEntry.findFirst({
+    // Teacher conflict — theory entries in either lab slot
+    const theoryTeacherConflict = await (db as PrismaClient).timetableEntry.findFirst({
       where: {
         ...yearScopeFilter(academicYearId),
         teacherId: group.teacherId,
         day: data.day,
-        slotStart: { lte: data.slotStart + 1 },
-        slotEnd: { gte: data.slotStart },
+        slotId: { in: labSlotIds },
       },
-      include: {
-        classSection: {
-          include: {
-            branch: true,
-          },
-        },
-      },
+      include: { classSection: { include: { branch: true } } },
     });
-
     if (theoryTeacherConflict && teacher) {
       throw new AppError(
         `Teacher ${teacher.abbreviation} is already scheduled on ${DAY_LABELS[data.day as keyof typeof DAY_LABELS]} slot ${data.slotStart} for ${formatClassLabel(theoryTeacherConflict.classSection)}`,
@@ -340,29 +326,20 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
       );
     }
 
-    const labTeacherConflict = await db.labGroupEntry.findFirst({
+    // Teacher conflict — other lab entries overlapping either slot
+    const labTeacherConflict = await (db as PrismaClient).labGroupEntry.findFirst({
       where: {
         teacherId: group.teacherId,
         timetableEntry: {
           ...yearScopeFilter(academicYearId),
           day: data.day,
-          slotStart: { lte: data.slotStart + 1 },
-          slotEnd: { gte: data.slotStart },
+          slotId: { in: labSlotIds },
         },
       },
       include: {
-        timetableEntry: {
-          include: {
-            classSection: {
-              include: {
-                branch: true,
-              },
-            },
-          },
-        },
+        timetableEntry: { include: { classSection: { include: { branch: true } } } },
       },
     });
-
     if (labTeacherConflict && teacher) {
       throw new AppError(
         `Teacher ${teacher.abbreviation} already has a lab on ${DAY_LABELS[data.day as keyof typeof DAY_LABELS]} slot ${data.slotStart} for ${formatClassLabel(labTeacherConflict.timetableEntry.classSection)}`,
@@ -371,29 +348,20 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
       );
     }
 
-    const labConflict = await db.labGroupEntry.findFirst({
+    // Lab room conflict
+    const labConflict = await (db as PrismaClient).labGroupEntry.findFirst({
       where: {
         labId: group.labId,
         timetableEntry: {
           ...yearScopeFilter(academicYearId),
           day: data.day,
-          slotStart: { lte: data.slotStart + 1 },
-          slotEnd: { gte: data.slotStart },
+          slotId: { in: labSlotIds },
         },
       },
       include: {
-        timetableEntry: {
-          include: {
-            classSection: {
-              include: {
-                branch: true,
-              },
-            },
-          },
-        },
+        timetableEntry: { include: { classSection: { include: { branch: true } } } },
       },
     });
-
     if (labConflict && lab) {
       throw new AppError(
         `Lab ${lab.name} is already booked on ${DAY_LABELS[data.day as keyof typeof DAY_LABELS]} slot ${data.slotStart} for ${formatClassLabel(labConflict.timetableEntry.classSection)}`,
@@ -403,13 +371,12 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
     }
   }
 
-  return db.timetableEntry.create({
+  return (db as PrismaClient).timetableEntry.create({
     data: {
       classSectionId: data.classSectionId,
       day: data.day,
-      slotStart: data.slotStart,
-      slotEnd: data.slotStart + 1,
-      entryType: EntryType.LAB,
+      slotId: startSlotId, // LAB entry is anchored to the start slot
+      entryType: TimetableEntryType.LAB,
       subjectId: null,
       labGroups: {
         create: data.labGroups.map((group) => ({
@@ -421,6 +388,7 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
       },
     },
     include: {
+      slot: true,
       labGroups: {
         include: {
           subject: true,
@@ -431,6 +399,8 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
     },
   });
 };
+
+// ─── Service Exports ──────────────────────────────────────────────────────────
 
 export const timetableService = {
 
@@ -443,15 +413,16 @@ export const timetableService = {
   },
 
   async deleteEntry(id: number) {
-    const existing = await prisma.timetableEntry.findUnique({ 
+    const existing = await prisma.timetableEntry.findUnique({
       where: { id },
       include: {
         teacher: true,
         subject: true,
         room: true,
+        slot: true,
         classSection: { include: { branch: true, academicYear: true } },
-        labGroups: { include: { teacher: true, subject: true, lab: true } }
-      }
+        labGroups: { include: { teacher: true, subject: true, lab: true } },
+      },
     });
 
     if (!existing) {
@@ -466,15 +437,16 @@ export const timetableService = {
   },
 
   async updateEntry(id: number, data: TheoryEntryInput | LabEntryInput) {
-    const existing = await prisma.timetableEntry.findUnique({ 
+    const existing = await prisma.timetableEntry.findUnique({
       where: { id },
       include: {
         teacher: true,
         subject: true,
         room: true,
+        slot: true,
         classSection: { include: { branch: true, academicYear: true } },
-        labGroups: { include: { teacher: true, subject: true, lab: true } }
-      }
+        labGroups: { include: { teacher: true, subject: true, lab: true } },
+      },
     });
 
     if (!existing) {
@@ -488,7 +460,7 @@ export const timetableService = {
     return prisma.$transaction(async (tx) => {
       await tx.timetableEntry.delete({ where: { id } });
 
-      if (data.entryType === EntryType.LAB || (data as LabEntryInput).labGroups) {
+      if (data.entryType === TimetableEntryType.LAB || (data as LabEntryInput).labGroups) {
         return createLab(tx, data as LabEntryInput);
       }
 
@@ -499,10 +471,7 @@ export const timetableService = {
   async getClassTimetable(classSectionId: number) {
     const classSection = await prisma.classSection.findUnique({
       where: { id: classSectionId },
-      include: {
-        branch: true,
-        academicYear: true,
-      },
+      include: { branch: true, academicYear: true },
     });
 
     if (!classSection) {
@@ -512,6 +481,7 @@ export const timetableService = {
     const entries = await prisma.timetableEntry.findMany({
       where: { classSectionId },
       include: {
+        slot: true,
         subject: true,
         teacher: true,
         room: true,
@@ -523,7 +493,7 @@ export const timetableService = {
           },
         },
       },
-      orderBy: [{ day: "asc" }, { slotStart: "asc" }],
+      orderBy: [{ day: "asc" }, { slot: { order: "asc" } }],
     });
 
     return {
@@ -542,23 +512,17 @@ export const timetableService = {
       throw new AppError("Teacher not found", 404, "NOT_FOUND");
     }
 
-    const yearFilter = academicYearId
-      ? { classSection: { academicYearId } }
-      : {};
+    const yearFilter = academicYearId ? { classSection: { academicYearId } } : {};
 
     const theoryEntries = await prisma.timetableEntry.findMany({
-      where: {
-        teacherId,
-        ...yearFilter,
-      },
+      where: { teacherId, ...yearFilter },
       include: {
-        classSection: {
-          include: { branch: true },
-        },
+        slot: true,
+        classSection: { include: { branch: true } },
         subject: true,
         room: true,
       },
-      orderBy: [{ day: "asc" }, { slotStart: "asc" }],
+      orderBy: [{ day: "asc" }, { slot: { order: "asc" } }],
     });
 
     const labEntries = await prisma.labGroupEntry.findMany({
@@ -571,21 +535,19 @@ export const timetableService = {
         lab: true,
         timetableEntry: {
           include: {
-            classSection: {
-              include: { branch: true },
-            },
+            slot: true,
+            classSection: { include: { branch: true } },
             subject: true,
           },
         },
       },
-      orderBy: [{ timetableEntry: { day: "asc" } }, { timetableEntry: { slotStart: "asc" } }],
+      orderBy: [
+        { timetableEntry: { day: "asc" } },
+        { timetableEntry: { slot: { order: "asc" } } },
+      ],
     });
 
-    return {
-      teacher,
-      theoryEntries,
-      labEntries,
-    };
+    return { teacher, theoryEntries, labEntries };
   },
 
   async getRoomOccupancy(roomId: number, academicYearId?: number) {
@@ -594,59 +556,38 @@ export const timetableService = {
       throw new AppError("Room not found", 404, "NOT_FOUND");
     }
 
-    const yearFilter = academicYearId
-      ? { classSection: { academicYearId } }
-      : {};
+    const yearFilter = academicYearId ? { classSection: { academicYearId } } : {};
 
     const entries = await prisma.timetableEntry.findMany({
-      where: {
-        roomId,
-        ...yearFilter,
-      },
+      where: { roomId, ...yearFilter },
       include: {
-        classSection: {
-          include: {
-            branch: true,
-          },
-        },
+        slot: true,
+        classSection: { include: { branch: true } },
         subject: true,
         teacher: true,
       },
-      orderBy: [{ day: "asc" }, { slotStart: "asc" }],
+      orderBy: [{ day: "asc" }, { slot: { order: "asc" } }],
     });
 
-    return {
-      room,
-      entries,
-    };
+    return { room, entries };
   },
 
   factoryReset: async () => {
     return prisma.$transaction(async (db) => {
-      // 1. Notification Logs
       await db.notificationLog.deleteMany({});
-      
-      // 2. Lab Group Entries (Dependent on TimetableEntry)
       await db.labGroupEntry.deleteMany({});
-      
-      // 3. Timetable Entries
       await db.timetableEntry.deleteMany({});
-      
-      // 4. Mappings (TeacherSubject, ClassSubject)
       await db.teacherSubject.deleteMany({});
       await db.classSubject.deleteMany({});
-      
-      // 5. Basic entities
       await db.room.deleteMany({});
       await db.lab.deleteMany({});
       await db.subject.deleteMany({});
       await db.teacher.deleteMany({});
       await db.classSection.deleteMany({});
       await db.branch.deleteMany({});
-      
-      // 6. Academic Years
       await db.academicYear.deleteMany({});
-      
+      // Note: Slots are static configuration and are intentionally NOT wiped
+      // in a factory reset. Re-run the seed to restore them if needed.
       return { success: true, message: "Factory reset complete" };
     });
   },

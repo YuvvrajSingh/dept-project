@@ -4,17 +4,19 @@ import type {
   Subject,
   Teacher,
   Room,
+  Slot,
   TimetableEntry,
 } from "@prisma/client";
 import { DAY_LABELS } from "./timetableConstants";
 
 type LabGroupWithRelations = LabGroupEntry & {
-  subject: Subject | null;
+  subject: Subject;
   lab: Lab;
   teacher: Teacher;
 };
 
 type TimetableEntryWithRelations = TimetableEntry & {
+  slot: Slot;
   subject: Subject | null;
   teacher: Teacher | null;
   room: Room | null;
@@ -39,7 +41,7 @@ type LabCell = {
   groups: Record<
     string,
     {
-      subjectId: number | null;
+      subjectId: number;
       subjectCode: string;
       subjectName: string;
       labId: number;
@@ -85,13 +87,14 @@ export function buildMatrix(
 
   for (const entry of entries) {
     const dayKey = String(entry.day);
+    const slotOrder = entry.slot.order; // use order (1-6) as the matrix key
 
-    if (entry.entryType === "THEORY") {
+    if (entry.entryType === "LECTURE") {
       if (!entry.subject) {
         continue;
       }
 
-      matrix[dayKey].slots[String(entry.slotStart)] = {
+      matrix[dayKey].slots[String(slotOrder)] = {
         type: "THEORY",
         entryId: entry.id,
         subjectId: entry.subjectId ?? entry.subject.id,
@@ -105,11 +108,12 @@ export function buildMatrix(
       continue;
     }
 
+    // LAB entry — populate start slot and continuation slot(s)
     const groups = entry.labGroups.reduce<
       Record<
         string,
         {
-          subjectId: number | null;
+          subjectId: number;
           subjectCode: string;
           subjectName: string;
           labId: number;
@@ -121,9 +125,8 @@ export function buildMatrix(
     >((acc, group) => {
       acc[group.groupName] = {
         subjectId: group.subjectId,
-        subjectCode: group.subject?.code ?? entry.subject?.code ?? "N/A",
-        subjectName:
-          group.subject?.name ?? entry.subject?.name ?? "Unknown Subject",
+        subjectCode: group.subject.code,
+        subjectName: group.subject.name,
         labId: group.labId,
         teacherId: group.teacherId,
         lab: group.lab.name,
@@ -132,21 +135,19 @@ export function buildMatrix(
       return acc;
     }, {});
 
-    matrix[dayKey].slots[String(entry.slotStart)] = {
+    matrix[dayKey].slots[String(slotOrder)] = {
       type: "LAB",
       entryId: entry.id,
       groups,
     };
 
-    if (entry.slotEnd && entry.slotEnd > entry.slotStart) {
-      for (let s = entry.slotStart + 1; s <= entry.slotEnd; s++) {
-        if (s <= 6) {
-          matrix[dayKey].slots[String(s)] = {
-            type: "LAB_CONTINUATION",
-            entryId: entry.id,
-          };
-        }
-      }
+    // LAB spans two consecutive slots: mark order+1 as a continuation cell
+    const continuationOrder = slotOrder + 1;
+    if (continuationOrder <= 6) {
+      matrix[dayKey].slots[String(continuationOrder)] = {
+        type: "LAB_CONTINUATION",
+        entryId: entry.id,
+      };
     }
   }
 

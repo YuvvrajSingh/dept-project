@@ -1,3 +1,4 @@
+import { TimetableEntryType } from "@prisma/client";
 import { prisma } from "../prisma/client";
 
 export const dashboardService = {
@@ -36,10 +37,11 @@ export const dashboardService = {
 
       // Calculate filled slots
       c.timetable.forEach((entry) => {
-        if (entry.entryType === "THEORY") {
+        if (entry.entryType === TimetableEntryType.LECTURE) {
           scheduledSlots += 1;
-        } else if (entry.entryType === "LAB") {
-          scheduledSlots += entry.labGroups.length * (entry.slotEnd - entry.slotStart + 1);
+        } else if (entry.entryType === TimetableEntryType.LAB) {
+          // LAB always spans 2 consecutive slots
+          scheduledSlots += entry.labGroups.length * 2;
         }
       });
 
@@ -68,10 +70,11 @@ export const dashboardService = {
     const workload = teachers.map((t) => {
       let hours = 0;
       t.timetableEntries.forEach((entry) => {
-        if (entry.entryType === "THEORY") hours += 1;
+        if (entry.entryType === TimetableEntryType.LECTURE) hours += 1;
       });
-      t.labGroupEntries.forEach((lab) => {
-         hours += (lab.timetableEntry.slotEnd - lab.timetableEntry.slotStart + 1);
+      t.labGroupEntries.forEach((_lab) => {
+        // LAB always spans 2 slots
+        hours += 2;
       });
       return {
         teacherId: t.id,
@@ -88,11 +91,11 @@ export const dashboardService = {
     const allRooms = await prisma.room.findMany();
     const timetable = await prisma.timetableEntry.findMany({
       where: {
-        entryType: "THEORY",
+        entryType: { in: [TimetableEntryType.LECTURE] },
         roomId: { not: null },
         ...(resolvedYearId ? { classSection: { academicYearId: resolvedYearId } } : {}),
       },
-      include: { room: true }
+      include: { room: true, slot: true }
     });
     
     const heatmap: Record<number, Record<number, { occupied: number, occupiedRoomIds: Set<number> }>> = {};
@@ -108,9 +111,10 @@ export const dashboardService = {
     }
 
     timetable.forEach((entry) => {
-      if (entry.roomId && heatmap[entry.day] && heatmap[entry.day][entry.slotStart]) {
-        heatmap[entry.day][entry.slotStart].occupied += 1;
-        heatmap[entry.day][entry.slotStart].occupiedRoomIds.add(entry.roomId);
+      const slotOrder = (entry as any).slot?.order;
+      if (entry.roomId && heatmap[entry.day] && slotOrder && heatmap[entry.day][slotOrder]) {
+        heatmap[entry.day][slotOrder].occupied += 1;
+        heatmap[entry.day][slotOrder].occupiedRoomIds.add(entry.roomId);
       }
     });
 
@@ -162,7 +166,7 @@ export const dashboardService = {
           id: l.id,
           timestamp: l.createdAt.toISOString(),
           type,
-          message: `[${type}] ${subjectName} class for ${className} on Day ${entry?.day || '?'} Slot ${entry?.slotStart || '?'} triggered an update.`,
+          message: `[${type}] ${subjectName} class for ${className} on Day ${entry?.day || '?'} Slot ${(entry as any)?.slot?.order || '?'} triggered an update.`,
           classSectionId: entry?.classSectionId || null
         };
       });

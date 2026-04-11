@@ -1,4 +1,5 @@
 import cron from 'node-cron';
+import { NotificationLogType } from '@prisma/client';
 import { prisma } from '../prisma/client';
 import { emailService } from './email.service';
 import { SLOT_TIMES } from '../utils/timetableConstants';
@@ -44,16 +45,21 @@ export const schedulerService = {
     for (const slotKey of matchedSlotKeys) {
       const slotInt = parseInt(slotKey, 10);
 
+      // Resolve the slotId from slot order for DB query
+      const slot = await prisma.slot.findUnique({ where: { order: slotInt } });
+      if (!slot) continue;
+
       // Search TimetableEntries — only for the active academic year
       const entries = await prisma.timetableEntry.findMany({
         where: {
           day: currentDayIndex,
-          slotStart: slotInt,
+          slotId: slot.id,
           classSection: {
             academicYear: { isActive: true },
           },
         },
         include: {
+          slot: true,
           classSection: { include: { branch: true } },
           subject: true,
           teacher: true,
@@ -65,7 +71,7 @@ export const schedulerService = {
       });
 
       for (const entry of entries) {
-        if (entry.entryType === 'THEORY' && entry.teacher?.email) {
+        if (entry.entryType === 'LECTURE' && entry.teacher?.email) {
           await this.notifyTeacher(
             entry.id,
             entry.teacher.id,
@@ -115,7 +121,7 @@ export const schedulerService = {
         timetableEntryId_teacherId_type_date: {
           timetableEntryId: entryId,
           teacherId: teacherId,
-          type: 'REMINDER',
+          type: NotificationLogType.TIMETABLE_CHANGE,
           date: today
         }
       }
@@ -138,7 +144,7 @@ export const schedulerService = {
       data: {
         timetableEntryId: entryId,
         teacherId: teacherId,
-        type: 'REMINDER',
+        type: NotificationLogType.TIMETABLE_CHANGE,
         date: today
       }
     });
