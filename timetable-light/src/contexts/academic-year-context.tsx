@@ -8,10 +8,8 @@ interface AcademicYearContextType {
   academicYears: AcademicYear[];
   activeYear: AcademicYear | null;
   selectedYear: AcademicYear | null;
-  selectedSemesterHalf: "ODD" | "EVEN";
   isArchived: boolean;
   setSelectedYear: (year: AcademicYear) => void;
-  setSelectedSemesterHalf: (half: "ODD" | "EVEN") => void;
   loading: boolean;
   refresh: () => Promise<void>;
 }
@@ -19,12 +17,10 @@ interface AcademicYearContextType {
 const AcademicYearContext = createContext<AcademicYearContextType | undefined>(undefined);
 
 const STORAGE_KEY_YEAR = "timetable-selected-year-id";
-const STORAGE_KEY_SEM = "timetable-selected-semester-half";
 
 export function AcademicYearProvider({ children }: { children: React.ReactNode }) {
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [selectedYear, setSelectedYearState] = useState<AcademicYear | null>(null);
-  const [selectedSemesterHalf, setSelectedSemesterHalfState] = useState<"ODD" | "EVEN">("ODD");
   const [loading, setLoading] = useState(true);
 
   const activeYear = academicYears.find((y) => y.isActive) ?? null;
@@ -39,12 +35,6 @@ export function AcademicYearProvider({ children }: { children: React.ReactNode }
 
       // Restore from localStorage or default to active year
       const savedYearId = localStorage.getItem(STORAGE_KEY_YEAR);
-      const savedSemHalf = localStorage.getItem(STORAGE_KEY_SEM) as "ODD" | "EVEN" | null;
-
-      if (savedSemHalf === "ODD" || savedSemHalf === "EVEN") {
-        setSelectedSemesterHalfState(savedSemHalf);
-      }
-
       if (savedYearId) {
         const found = years.find((y) => y.id === Number(savedYearId));
         if (found) {
@@ -79,21 +69,14 @@ export function AcademicYearProvider({ children }: { children: React.ReactNode }
     localStorage.setItem(STORAGE_KEY_YEAR, String(year.id));
   }, []);
 
-  const setSelectedSemesterHalf = useCallback((half: "ODD" | "EVEN") => {
-    setSelectedSemesterHalfState(half);
-    localStorage.setItem(STORAGE_KEY_SEM, half);
-  }, []);
-
   return (
     <AcademicYearContext.Provider
       value={{
         academicYears,
         activeYear,
         selectedYear,
-        selectedSemesterHalf,
         isArchived,
         setSelectedYear,
-        setSelectedSemesterHalf,
         loading,
         refresh: fetchYears,
       }}

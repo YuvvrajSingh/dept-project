@@ -54,19 +54,6 @@ function TimetableBuilderInner() {
       setLabs(l);
       if (occ) setOccupancyMap(occ);
 
-      // Pre-compute teacher-subject map
-      const tMap: Record<number, number[]> = {};
-      const tPromises = t.map(async (teacher) => {
-        try {
-          const tSubjects = await teacherApi.getSubjects(teacher.id);
-          tMap[teacher.id] = tSubjects.map(ts => ts.subjectId);
-        } catch (e) {
-          tMap[teacher.id] = [];
-        }
-      });
-      await Promise.all(tPromises);
-      setTeacherMap(tMap);
-
       // Reset selections when year changes
       setBranch(null);
       setSemester(null);
@@ -84,6 +71,19 @@ function TimetableBuilderInner() {
             }, 100);
          }
       }
+
+      // Pre-compute teacher-subject map
+      const tMap: Record<number, number[]> = {};
+      const tPromises = t.map(async (teacher) => {
+        try {
+          const tSubjects = await teacherApi.getSubjects(teacher.id);
+          tMap[teacher.id] = tSubjects.map(ts => ts.subjectId);
+        } catch (e) {
+          tMap[teacher.id] = [];
+        }
+      });
+      await Promise.all(tPromises);
+      setTeacherMap(tMap);
 
     }
     init();

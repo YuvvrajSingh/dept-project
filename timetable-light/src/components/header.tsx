@@ -20,10 +20,8 @@ export default function Header() {
   const {
     academicYears,
     selectedYear,
-    selectedSemesterHalf,
     isArchived,
     setSelectedYear,
-    setSelectedSemesterHalf,
     loading,
   } = useAcademicYear();
 
@@ -99,32 +97,6 @@ export default function Header() {
                   </div>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* Semester Half Toggle */}
-          {!loading && (
-            <div className="flex p-1 bg-surface-container-high rounded-lg">
-              <button
-                onClick={() => setSelectedSemesterHalf("ODD")}
-                className={`px-4 py-1.5 text-xs font-bold uppercase tracking-widest transition-colors rounded-md ${
-                  selectedSemesterHalf === "ODD"
-                    ? "bg-surface-container-lowest text-secondary shadow-sm"
-                    : "text-on-surface-variant hover:text-on-surface"
-                }`}
-              >
-                Odd
-              </button>
-              <button
-                onClick={() => setSelectedSemesterHalf("EVEN")}
-                className={`px-4 py-1.5 text-xs font-bold uppercase tracking-widest transition-colors rounded-md ${
-                  selectedSemesterHalf === "EVEN"
-                    ? "bg-surface-container-lowest text-secondary shadow-sm"
-                    : "text-on-surface-variant hover:text-on-surface"
-                }`}
-              >
-                Even
-              </button>
             </div>
           )}
 
