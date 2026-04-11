@@ -21,7 +21,7 @@ const theorySchema = z.object({
     day: z.coerce.number().int().min(1).max(6),
     slotStart: z.coerce.number().int().min(1).max(6),
     slotEnd: z.coerce.number().int().min(1).max(6).optional(),
-    entryType: z.literal("THEORY"),
+    entryType: z.literal("LECTURE"),
     subjectId: z.coerce.number().int().positive(),
     teacherId: z.coerce.number().int().positive(),
     roomId: z.coerce.number().int().positive(),
