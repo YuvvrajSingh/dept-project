@@ -56,12 +56,22 @@ export const teacherService = {
 
   async deactivateTeacher(id: number) {
     await assertTeacherExists(id);
-    return prisma.teacher.update({ where: { id }, data: { isActive: false } });
+    const teacher = await prisma.teacher.update({ where: { id }, data: { isActive: false } });
+    await prisma.user.updateMany({
+      where: { teacherId: id },
+      data: { isActive: false },
+    });
+    return teacher;
   },
 
   async reactivateTeacher(id: number) {
     await assertTeacherExists(id);
-    return prisma.teacher.update({ where: { id }, data: { isActive: true } });
+    const teacher = await prisma.teacher.update({ where: { id }, data: { isActive: true } });
+    await prisma.user.updateMany({
+      where: { teacherId: id },
+      data: { isActive: true },
+    });
+    return teacher;
   },
 
   async assignSubject(teacherId: number, subjectId: number) {

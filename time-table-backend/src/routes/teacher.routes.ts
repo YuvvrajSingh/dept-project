@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { teacherController } from "../controllers/teacher.controller";
+import { requireAdmin } from "../middleware/auth.middleware";
 
 const router = Router();
 
@@ -52,16 +53,21 @@ router.get("/:id", (req, _res, next) => {
   }
 }, teacherController.getById);
 
-router.post("/", (req, _res, next) => {
-  try {
-    validate(teacherCreateSchema, { body: req.body });
-    next();
-  } catch (error) {
-    next(error);
-  }
-}, teacherController.create);
+router.post(
+  "/",
+  requireAdmin,
+  (req, _res, next) => {
+    try {
+      validate(teacherCreateSchema, { body: req.body });
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
+  teacherController.create,
+);
 
-router.put("/:id", (req, _res, next) => {
+router.put("/:id", requireAdmin, (req, _res, next) => {
   try {
     validate(idParamSchema, { id: req.params.id });
     validate(teacherUpdateSchema, { body: req.body });
@@ -71,7 +77,7 @@ router.put("/:id", (req, _res, next) => {
   }
 }, teacherController.update);
 
-router.delete("/:id", (req, _res, next) => {
+router.delete("/:id", requireAdmin, (req, _res, next) => {
   try {
     validate(idParamSchema, { id: req.params.id });
     next();
@@ -80,7 +86,7 @@ router.delete("/:id", (req, _res, next) => {
   }
 }, teacherController.remove);
 
-router.post("/:id/subjects", (req, _res, next) => {
+router.post("/:id/subjects", requireAdmin, (req, _res, next) => {
   try {
     validate(idParamSchema, { id: req.params.id });
     validate(assignSubjectSchema, { body: req.body });
@@ -90,7 +96,7 @@ router.post("/:id/subjects", (req, _res, next) => {
   }
 }, teacherController.assignSubject);
 
-router.delete("/:id/subjects/:subjectId", (req, _res, next) => {
+router.delete("/:id/subjects/:subjectId", requireAdmin, (req, _res, next) => {
   try {
     validate(subjectParamSchema, { id: req.params.id, subjectId: req.params.subjectId });
     next();

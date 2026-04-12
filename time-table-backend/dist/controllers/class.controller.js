@@ -3,9 +3,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.classController = void 0;
 const class_service_1 = require("../services/class.service");
 exports.classController = {
-    async list(_req, res, next) {
+    async list(req, res, next) {
         try {
-            const data = await class_service_1.classService.listClassSections();
+            const academicYearId = req.academicYearId;
+            const data = await class_service_1.classService.listClassSections(academicYearId);
             res.status(200).json(data);
         }
         catch (error) {

@@ -27,6 +27,11 @@ exports.pdfService = {
                 }
             }
         });
+        const subjectAbbreviationByCode = new Map();
+        for (const cs of classSubjects) {
+            const sub = cs.subject;
+            subjectAbbreviationByCode.set(sub.code, sub.abbreviation || sub.code);
+        }
         // 2. Build Dynamic Rows for Timetable Group
         let dynamicRows = '';
         const days = ['1', '2', '3', '4', '5', '6'];
@@ -43,9 +48,10 @@ exports.pdfService = {
                     rowHtml += `<td></td>`;
                 }
                 else if (cell.type === 'THEORY') {
+                    const displaySubject = subjectAbbreviationByCode.get(cell.subjectCode) || cell.subjectCode;
                     rowHtml += `
             <td>
-              <div><strong>${cell.subjectCode}</strong></div>
+              <div><strong>${displaySubject}</strong></div>
               <div>${cell.teacherAbbr || ''} ${cell.roomName ? `(${cell.roomName})` : ''}</div>
             </td>`;
                 }
@@ -54,7 +60,8 @@ exports.pdfService = {
                     const groupKeys = Object.keys(cell.groups).sort();
                     const groupsHtml = groupKeys.map(k => {
                         const g = cell.groups[k];
-                        return `<div style="font-size: 10px;">${k}: ${g.subjectCode} (${g.lab}) - ${g.teacher}</div>`;
+                        const displaySubject = subjectAbbreviationByCode.get(g.subjectCode) || g.subjectCode;
+                        return `<div style="font-size: 10px;">${k}: ${displaySubject} (${g.lab}) - ${g.teacher}</div>`;
                     }).join('');
                     rowHtml += `<td colspan="2">${groupsHtml}</td>`;
                 }
@@ -80,7 +87,7 @@ exports.pdfService = {
             const teachers = sub.teacherSubjects.map(ts => ts.teacher.name).join(', ');
             subjectRows += `
         <tr>
-          <td>${sub.code}</td>
+          <td>${sub.abbreviation || sub.code}</td>
           <td>${sub.name}</td>
           <td>${sub.creditHours}</td>
           <td>${teachers || 'N/A'}</td>
@@ -162,11 +169,11 @@ exports.pdfService = {
 
         <div class="meta">
           <div class="meta-left">
-            <div><strong>Class and Semester:</strong> ${data.branch} Year ${data.year}</div>
-            <div><strong>Department:</strong> ${data.branch}</div>
+            <div><strong>Class and Semester:</strong> ${data.branch} Semester ${data.semester}</div>
+            <div><strong>Department:</strong> CSE</div>
           </div>
           <div class="meta-right">
-            <div><strong>W.E.F.:</strong> 01/08/2025</div>
+            <div><strong>W.E.F.:</strong> ${new Date().toLocaleDateString('en-GB')}</div>
           </div>
         </div>
 
@@ -192,7 +199,7 @@ exports.pdfService = {
         <table class="subjects-table">
           <thead>
             <tr>
-              <th>Subject Code</th>
+              <th>Subject Abbreviation</th>
               <th>Subject Name</th>
               <th>Credit Hours</th>
               <th>Teacher Name</th>

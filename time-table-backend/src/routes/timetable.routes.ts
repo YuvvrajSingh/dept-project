@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { timetableController } from "../controllers/timetable.controller";
+import { requireAdmin } from "../middleware/auth.middleware";
 
 const router = Router();
 
@@ -54,6 +55,7 @@ const updateEntrySchema = z.union([theorySchema, labSchema]);
 
 router.post(
   "/entry",
+  requireAdmin,
   (req, _res, next) => {
     try {
       createEntrySchema.parse({ body: req.body });
@@ -67,6 +69,7 @@ router.post(
 
 router.put(
   "/entry/:id",
+  requireAdmin,
   (req, _res, next) => {
     try {
       idSchema.parse({ id: req.params.id });
@@ -81,6 +84,7 @@ router.put(
 
 router.delete(
   "/entry/:id",
+  requireAdmin,
   (req, _res, next) => {
     try {
       idSchema.parse({ id: req.params.id });
@@ -120,11 +124,13 @@ router.get(
 
 router.delete(
   "/clear-all",
+  requireAdmin,
   timetableController.clearGlobalTimetable
 );
 
 router.delete(
   "/factory-reset",
+  requireAdmin,
   timetableController.factoryReset
 );
 
@@ -160,6 +166,7 @@ router.get(
 
 router.post(
   "/:classSectionId/generate",
+  requireAdmin,
   (req, _res, next) => {
     try {
       classSectionParamSchema.parse({
@@ -175,6 +182,7 @@ router.post(
 
 router.delete(
   "/:classSectionId/clear",
+  requireAdmin,
   (req, _res, next) => {
     try {
       classSectionParamSchema.parse({

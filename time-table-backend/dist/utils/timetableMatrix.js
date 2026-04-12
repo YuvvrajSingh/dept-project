@@ -19,11 +19,12 @@ function buildMatrix(entries) {
     }
     for (const entry of entries) {
         const dayKey = String(entry.day);
-        if (entry.entryType === "THEORY") {
+        const slotOrder = entry.slot.order; // use order (1-6) as the matrix key
+        if (entry.entryType === "LECTURE") {
             if (!entry.subject) {
                 continue;
             }
-            matrix[dayKey].slots[String(entry.slotStart)] = {
+            matrix[dayKey].slots[String(slotOrder)] = {
                 type: "THEORY",
                 entryId: entry.id,
                 subjectId: entry.subjectId ?? entry.subject.id,
@@ -36,11 +37,12 @@ function buildMatrix(entries) {
             };
             continue;
         }
+        // LAB entry — populate start slot and continuation slot(s)
         const groups = entry.labGroups.reduce((acc, group) => {
             acc[group.groupName] = {
                 subjectId: group.subjectId,
-                subjectCode: group.subject?.code ?? entry.subject?.code ?? "N/A",
-                subjectName: group.subject?.name ?? entry.subject?.name ?? "Unknown Subject",
+                subjectCode: group.subject.code,
+                subjectName: group.subject.name,
                 labId: group.labId,
                 teacherId: group.teacherId,
                 lab: group.lab.name,
@@ -48,20 +50,18 @@ function buildMatrix(entries) {
             };
             return acc;
         }, {});
-        matrix[dayKey].slots[String(entry.slotStart)] = {
+        matrix[dayKey].slots[String(slotOrder)] = {
             type: "LAB",
             entryId: entry.id,
             groups,
         };
-        if (entry.slotEnd && entry.slotEnd > entry.slotStart) {
-            for (let s = entry.slotStart + 1; s <= entry.slotEnd; s++) {
-                if (s <= 6) {
-                    matrix[dayKey].slots[String(s)] = {
-                        type: "LAB_CONTINUATION",
-                        entryId: entry.id,
-                    };
-                }
-            }
+        // LAB spans two consecutive slots: mark order+1 as a continuation cell
+        const continuationOrder = slotOrder + 1;
+        if (continuationOrder <= 6) {
+            matrix[dayKey].slots[String(continuationOrder)] = {
+                type: "LAB_CONTINUATION",
+                entryId: entry.id,
+            };
         }
     }
     return matrix;

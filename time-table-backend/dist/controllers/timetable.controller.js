@@ -19,7 +19,7 @@ exports.timetableController = {
     },
     async createEntry(req, res, next) {
         try {
-            if (req.body.entryType === client_1.EntryType.LAB) {
+            if (req.body.entryType === client_1.TimetableEntryType.LAB) {
                 const data = await timetable_service_1.timetableService.validateAndCreateLabEntry(req.body);
                 res.status(201).json(data);
                 return;
@@ -54,7 +54,8 @@ exports.timetableController = {
     async getTeacherSchedule(req, res, next) {
         try {
             const teacherId = Number(req.params.teacherId);
-            const data = await timetable_service_1.timetableService.getTeacherSchedule(teacherId);
+            const academicYearId = req.query.academicYearId ? Number(req.query.academicYearId) : undefined;
+            const data = await timetable_service_1.timetableService.getTeacherSchedule(teacherId, academicYearId);
             res.status(200).json(data);
         }
         catch (error) {
@@ -76,7 +77,8 @@ exports.timetableController = {
     async getRoomOccupancy(req, res, next) {
         try {
             const roomId = Number(req.params.roomId);
-            const data = await timetable_service_1.timetableService.getRoomOccupancy(roomId);
+            const academicYearId = req.query.academicYearId ? Number(req.query.academicYearId) : undefined;
+            const data = await timetable_service_1.timetableService.getRoomOccupancy(roomId, academicYearId);
             res.status(200).json(data);
         }
         catch (error) {

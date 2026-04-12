@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const zod_1 = require("zod");
 const teacher_controller_1 = require("../controllers/teacher.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 const idParamSchema = zod_1.z.object({
     id: zod_1.z.coerce.number().int().positive(),
@@ -45,7 +46,7 @@ router.get("/:id", (req, _res, next) => {
         next(error);
     }
 }, teacher_controller_1.teacherController.getById);
-router.post("/", (req, _res, next) => {
+router.post("/", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(teacherCreateSchema, { body: req.body });
         next();
@@ -54,7 +55,7 @@ router.post("/", (req, _res, next) => {
         next(error);
     }
 }, teacher_controller_1.teacherController.create);
-router.put("/:id", (req, _res, next) => {
+router.put("/:id", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(idParamSchema, { id: req.params.id });
         validate(teacherUpdateSchema, { body: req.body });
@@ -64,7 +65,7 @@ router.put("/:id", (req, _res, next) => {
         next(error);
     }
 }, teacher_controller_1.teacherController.update);
-router.delete("/:id", (req, _res, next) => {
+router.delete("/:id", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(idParamSchema, { id: req.params.id });
         next();
@@ -73,7 +74,7 @@ router.delete("/:id", (req, _res, next) => {
         next(error);
     }
 }, teacher_controller_1.teacherController.remove);
-router.post("/:id/subjects", (req, _res, next) => {
+router.post("/:id/subjects", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(idParamSchema, { id: req.params.id });
         validate(assignSubjectSchema, { body: req.body });
@@ -83,7 +84,7 @@ router.post("/:id/subjects", (req, _res, next) => {
         next(error);
     }
 }, teacher_controller_1.teacherController.assignSubject);
-router.delete("/:id/subjects/:subjectId", (req, _res, next) => {
+router.delete("/:id/subjects/:subjectId", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(subjectParamSchema, { id: req.params.id, subjectId: req.params.subjectId });
         next();

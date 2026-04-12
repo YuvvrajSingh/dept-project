@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
+import { authApi } from "@/lib/api";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
@@ -13,6 +15,19 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await authApi.logout();
+    } catch {
+      // Still leave the app shell; cookie may already be cleared.
+    }
+    router.replace("/login");
+    router.refresh();
+  }
 
   return (
     <aside className="h-screen w-64 fixed left-0 top-0 overflow-y-auto bg-slate-100 flex flex-col py-6 px-4 z-50">
@@ -56,9 +71,14 @@ export default function Sidebar() {
             <p className="text-[10px] text-slate-500 truncate">Administrator</p>
           </div>
         </div>
-        <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-200/50 hover:bg-error/10 hover:text-error text-slate-600 rounded-lg transition-all duration-200 text-xs font-bold uppercase tracking-wider">
+        <button
+          type="button"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-200/50 hover:bg-error/10 hover:text-error text-slate-600 rounded-lg transition-all duration-200 text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+          disabled={loggingOut}
+          onClick={handleLogout}
+        >
           <span className="material-symbols-outlined text-sm">logout</span>
-          Logout
+          {loggingOut ? "Signing out…" : "Logout"}
         </button>
       </div>
     </aside>

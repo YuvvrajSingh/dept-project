@@ -10,8 +10,11 @@ const assertSubjectExists = async (id) => {
     }
 };
 exports.subjectService = {
-    listSubjects() {
-        return client_1.prisma.subject.findMany({ orderBy: { id: "asc" } });
+    listSubjects(includeInactive = false) {
+        return client_1.prisma.subject.findMany({
+            where: includeInactive ? undefined : { isActive: true },
+            orderBy: { name: "asc" },
+        });
     },
     async getSubjectById(id) {
         const subject = await client_1.prisma.subject.findUnique({ where: { id } });
@@ -29,6 +32,16 @@ exports.subjectService = {
     },
     async deleteSubject(id) {
         await assertSubjectExists(id);
+        // Hard delete is blocked (Restrict) if subject is referenced in TimetableEntry or LabGroupEntry.
+        // Use deactivateSubject for safe archival instead.
         await client_1.prisma.subject.delete({ where: { id } });
+    },
+    async deactivateSubject(id) {
+        await assertSubjectExists(id);
+        return client_1.prisma.subject.update({ where: { id }, data: { isActive: false } });
+    },
+    async reactivateSubject(id) {
+        await assertSubjectExists(id);
+        return client_1.prisma.subject.update({ where: { id }, data: { isActive: true } });
     },
 };

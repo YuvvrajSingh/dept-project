@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { subjectController } from "../controllers/subject.controller";
+import { requireAdmin } from "../middleware/auth.middleware";
 
 const router = Router();
 
@@ -47,16 +48,21 @@ router.get("/:id", (req, _res, next) => {
   }
 }, subjectController.getById);
 
-router.post("/", (req, _res, next) => {
-  try {
-    validate(createSubjectSchema, { body: req.body });
-    next();
-  } catch (error) {
-    next(error);
-  }
-}, subjectController.create);
+router.post(
+  "/",
+  requireAdmin,
+  (req, _res, next) => {
+    try {
+      validate(createSubjectSchema, { body: req.body });
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
+  subjectController.create,
+);
 
-router.put("/:id", (req, _res, next) => {
+router.put("/:id", requireAdmin, (req, _res, next) => {
   try {
     validate(idParamSchema, { id: req.params.id });
     validate(updateSubjectSchema, { body: req.body });
@@ -66,7 +72,7 @@ router.put("/:id", (req, _res, next) => {
   }
 }, subjectController.update);
 
-router.delete("/:id", (req, _res, next) => {
+router.delete("/:id", requireAdmin, (req, _res, next) => {
   try {
     validate(idParamSchema, { id: req.params.id });
     next();

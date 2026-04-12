@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { labController } from "../controllers/lab.controller";
+import { requireAdmin } from "../middleware/auth.middleware";
 
 const router = Router();
 
@@ -26,16 +27,21 @@ const updateSchema = z.object({
 
 router.get("/", labController.list);
 
-router.post("/", (req, _res, next) => {
-  try {
-    createSchema.parse({ body: req.body });
-    next();
-  } catch (error) {
-    next(error);
-  }
-}, labController.create);
+router.post(
+  "/",
+  requireAdmin,
+  (req, _res, next) => {
+    try {
+      createSchema.parse({ body: req.body });
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
+  labController.create,
+);
 
-router.put("/:id", (req, _res, next) => {
+router.put("/:id", requireAdmin, (req, _res, next) => {
   try {
     idSchema.parse({ id: req.params.id });
     updateSchema.parse({ body: req.body });
@@ -45,7 +51,7 @@ router.put("/:id", (req, _res, next) => {
   }
 }, labController.update);
 
-router.delete("/:id", (req, _res, next) => {
+router.delete("/:id", requireAdmin, (req, _res, next) => {
   try {
     idSchema.parse({ id: req.params.id });
     next();

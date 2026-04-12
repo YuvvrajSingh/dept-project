@@ -1,11 +1,20 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.dashboardService = void 0;
-const client_1 = require("../prisma/client");
+const client_1 = require("@prisma/client");
+const client_2 = require("../prisma/client");
 exports.dashboardService = {
-    async getMetrics() {
+    async getMetrics(academicYearId) {
+        // Resolve which academic year to use
+        let resolvedYearId = academicYearId;
+        if (!resolvedYearId) {
+            const activeYear = await client_2.prisma.academicYear.findFirst({ where: { isActive: true } });
+            resolvedYearId = activeYear?.id;
+        }
+        const yearFilter = resolvedYearId ? { academicYearId: resolvedYearId } : {};
         // 1. Global Progress Tracker
-        const classes = await client_1.prisma.classSection.findMany({
+        const classes = await client_2.prisma.classSection.findMany({
+            where: yearFilter,
             include: {
                 branch: true,
                 subjects: { include: { subject: true } },
@@ -21,20 +30,17 @@ exports.dashboardService = {
                     requiredSlots += cs.subject.creditHours;
                 }
                 else {
-                    // Lab needs 2 slots per 3 groups. So theoretically 3 pairs?
-                    // Let's just estimate 1 block per group = 3 groups * 2 slots = 6 slots
                     requiredSlots += 6;
                 }
             });
             // Calculate filled slots
             c.timetable.forEach((entry) => {
-                if (entry.entryType === "THEORY") {
-                    scheduledSlots += 1; // 1 slot
+                if (entry.entryType === client_1.TimetableEntryType.LECTURE) {
+                    scheduledSlots += 1;
                 }
-                else if (entry.entryType === "LAB") {
-                    // Lab occupies multiple slots for groups
-                    // A 2-slot block with 2 groups = 4 student-slots
-                    scheduledSlots += entry.labGroups.length * (entry.slotEnd - entry.slotStart + 1);
+                else if (entry.entryType === client_1.TimetableEntryType.LAB) {
+                    // LAB always spans 2 consecutive slots
+                    scheduledSlots += entry.labGroups.length * 2;
                 }
             });
             return {
@@ -45,21 +51,27 @@ exports.dashboardService = {
                 percentage: requiredSlots > 0 ? Math.min(100, Math.round((scheduledSlots / requiredSlots) * 100)) : 100
             };
         });
-        // 2. Teacher Workload (Hours per week)
-        const teachers = await client_1.prisma.teacher.findMany({
+        // 2. Teacher Workload (Hours per week) — scoped to academic year
+        const teachers = await client_2.prisma.teacher.findMany({
             include: {
-                timetableEntries: true,
-                labGroupEntries: { include: { timetableEntry: true } }
+                timetableEntries: {
+                    where: resolvedYearId ? { classSection: { academicYearId: resolvedYearId } } : {},
+                },
+                labGroupEntries: {
+                    where: resolvedYearId ? { timetableEntry: { classSection: { academicYearId: resolvedYearId } } } : {},
+                    include: { timetableEntry: true }
+                }
             }
         });
         const workload = teachers.map((t) => {
             let hours = 0;
             t.timetableEntries.forEach((entry) => {
-                if (entry.entryType === "THEORY")
+                if (entry.entryType === client_1.TimetableEntryType.LECTURE)
                     hours += 1;
             });
-            t.labGroupEntries.forEach((lab) => {
-                hours += (lab.timetableEntry.slotEnd - lab.timetableEntry.slotStart + 1);
+            t.labGroupEntries.forEach((_lab) => {
+                // LAB always spans 2 slots
+                hours += 2;
             });
             return {
                 teacherId: t.id,
@@ -70,13 +82,16 @@ exports.dashboardService = {
         });
         // Sort by hours descending
         workload.sort((a, b) => b.hours - a.hours);
-        // 3. Room Utilization Heatmap
-        const allRooms = await client_1.prisma.room.findMany();
-        const timetable = await client_1.prisma.timetableEntry.findMany({
-            where: { entryType: "THEORY", roomId: { not: null } },
-            include: { room: true }
+        // 3. Room Utilization Heatmap — scoped to academic year
+        const allRooms = await client_2.prisma.room.findMany();
+        const timetable = await client_2.prisma.timetableEntry.findMany({
+            where: {
+                entryType: { in: [client_1.TimetableEntryType.LECTURE] },
+                roomId: { not: null },
+                ...(resolvedYearId ? { classSection: { academicYearId: resolvedYearId } } : {}),
+            },
+            include: { room: true, slot: true }
         });
-        // heatmap[day][slot] = { occupied: number, occupiedRoomIds: Set<number> }
         const heatmap = {};
         for (let d = 1; d <= 6; d++) {
             heatmap[d] = {
@@ -89,9 +104,10 @@ exports.dashboardService = {
             };
         }
         timetable.forEach((entry) => {
-            if (entry.roomId && heatmap[entry.day] && heatmap[entry.day][entry.slotStart]) {
-                heatmap[entry.day][entry.slotStart].occupied += 1;
-                heatmap[entry.day][entry.slotStart].occupiedRoomIds.add(entry.roomId);
+            const slotOrder = entry.slot?.order;
+            if (entry.roomId && heatmap[entry.day] && slotOrder && heatmap[entry.day][slotOrder]) {
+                heatmap[entry.day][slotOrder].occupied += 1;
+                heatmap[entry.day][slotOrder].occupiedRoomIds.add(entry.roomId);
             }
         });
         const heatmapFormatted = [];
@@ -99,7 +115,6 @@ exports.dashboardService = {
             for (let s = 1; s <= 6; s++) {
                 const stats = heatmap[d][s];
                 const percentage = allRooms.length > 0 ? Math.round((stats.occupied / allRooms.length) * 100) : 0;
-                // Calculate the explicitly free rooms for drill-down usage
                 const freeRooms = allRooms.filter(r => !stats.occupiedRoomIds.has(r.id)).map(r => r.name);
                 heatmapFormatted.push({
                     day: d,
@@ -111,33 +126,26 @@ exports.dashboardService = {
                 });
             }
         }
-        // 4. Live Audit Log
-        const logs = await client_1.prisma.notificationLog.findMany({
+        // 4. Live Audit Log — self-contained historical records
+        const logs = await client_2.prisma.notificationLog.findMany({
             orderBy: { createdAt: "desc" },
-            take: 15
+            take: 20
         });
-        const entryIds = logs.map(l => l.timetableEntryId);
-        const logEntries = await client_1.prisma.timetableEntry.findMany({
-            where: { id: { in: entryIds } },
-            include: { subject: true, classSection: { include: { branch: true } } }
-        });
-        const entryMap = new Map();
-        for (const e of logEntries)
-            entryMap.set(e.id, e);
-        const auditFeed = logs.map((l) => {
-            const entry = entryMap.get(l.timetableEntryId);
-            const subjectName = entry?.subject?.name || "Unknown";
-            const className = entry?.classSection?.branch?.name || "Unknown Class";
-            const type = l.type === "CANCELLATION" ? "CONFLICT DETECTED" : "SYSTEM NOTIFICATION";
-            return {
-                id: l.id,
-                timestamp: l.createdAt.toISOString(),
-                type,
-                message: `[${type}] ${subjectName} class for ${className} on Day ${entry?.day || '?'} Slot ${entry?.slotStart || '?'} triggered an update.`,
-                classSectionId: entry?.classSectionId || null
-            };
-        });
+        const auditFeed = logs.map((l) => ({
+            id: l.id,
+            timestamp: l.createdAt.toISOString(),
+            type: l.type,
+            performedBy: l.performedBy,
+            message: l.message,
+            metadata: l.metadata,
+            classSectionId: l.metadata?.classSectionId || null,
+        }));
+        // Get academic year info to return
+        const academicYear = resolvedYearId
+            ? await client_2.prisma.academicYear.findUnique({ where: { id: resolvedYearId } })
+            : null;
         return {
+            academicYear,
             progress,
             workload,
             heatmap: heatmapFormatted,

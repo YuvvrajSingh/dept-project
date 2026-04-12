@@ -17,8 +17,11 @@ const assertTeacherExists = async (teacherId) => {
     }
 };
 exports.teacherService = {
-    listTeachers() {
-        return client_1.prisma.teacher.findMany({ orderBy: { id: "asc" } });
+    listTeachers(includeInactive = false) {
+        return client_1.prisma.teacher.findMany({
+            where: includeInactive ? undefined : { isActive: true },
+            orderBy: { name: "asc" },
+        });
     },
     async getTeacherById(id) {
         const teacher = await client_1.prisma.teacher.findUnique({
@@ -39,7 +42,27 @@ exports.teacherService = {
     },
     async deleteTeacher(id) {
         await assertTeacherExists(id);
+        // Hard delete is blocked by Restrict on LabGroupEntry if the teacher has active lab entries.
+        // Use deactivateTeacher for safe archival instead.
         await client_1.prisma.teacher.delete({ where: { id } });
+    },
+    async deactivateTeacher(id) {
+        await assertTeacherExists(id);
+        const teacher = await client_1.prisma.teacher.update({ where: { id }, data: { isActive: false } });
+        await client_1.prisma.user.updateMany({
+            where: { teacherId: id },
+            data: { isActive: false },
+        });
+        return teacher;
+    },
+    async reactivateTeacher(id) {
+        await assertTeacherExists(id);
+        const teacher = await client_1.prisma.teacher.update({ where: { id }, data: { isActive: true } });
+        await client_1.prisma.user.updateMany({
+            where: { teacherId: id },
+            data: { isActive: true },
+        });
+        return teacher;
     },
     async assignSubject(teacherId, subjectId) {
         await assertTeacherExists(teacherId);
@@ -91,7 +114,7 @@ exports.teacherService = {
                 subject: true,
                 room: true,
             },
-            orderBy: [{ day: "asc" }, { slotStart: "asc" }],
+            orderBy: [{ day: "asc" }, { slot: { order: "asc" } }],
         });
     },
 };

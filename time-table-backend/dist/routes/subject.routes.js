@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const zod_1 = require("zod");
 const subject_controller_1 = require("../controllers/subject.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 const idParamSchema = zod_1.z.object({
     id: zod_1.z.coerce.number().int().positive(),
@@ -42,7 +43,7 @@ router.get("/:id", (req, _res, next) => {
         next(error);
     }
 }, subject_controller_1.subjectController.getById);
-router.post("/", (req, _res, next) => {
+router.post("/", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(createSubjectSchema, { body: req.body });
         next();
@@ -51,7 +52,7 @@ router.post("/", (req, _res, next) => {
         next(error);
     }
 }, subject_controller_1.subjectController.create);
-router.put("/:id", (req, _res, next) => {
+router.put("/:id", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(idParamSchema, { id: req.params.id });
         validate(updateSubjectSchema, { body: req.body });
@@ -61,7 +62,7 @@ router.put("/:id", (req, _res, next) => {
         next(error);
     }
 }, subject_controller_1.subjectController.update);
-router.delete("/:id", (req, _res, next) => {
+router.delete("/:id", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(idParamSchema, { id: req.params.id });
         next();

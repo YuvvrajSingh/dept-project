@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const zod_1 = require("zod");
 const lab_controller_1 = require("../controllers/lab.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 const idSchema = zod_1.z.object({ id: zod_1.z.coerce.number().int().positive() });
 const createSchema = zod_1.z.object({
@@ -22,7 +23,7 @@ const updateSchema = zod_1.z.object({
     }),
 });
 router.get("/", lab_controller_1.labController.list);
-router.post("/", (req, _res, next) => {
+router.post("/", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         createSchema.parse({ body: req.body });
         next();
@@ -31,7 +32,7 @@ router.post("/", (req, _res, next) => {
         next(error);
     }
 }, lab_controller_1.labController.create);
-router.put("/:id", (req, _res, next) => {
+router.put("/:id", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         idSchema.parse({ id: req.params.id });
         updateSchema.parse({ body: req.body });
@@ -41,7 +42,7 @@ router.put("/:id", (req, _res, next) => {
         next(error);
     }
 }, lab_controller_1.labController.update);
-router.delete("/:id", (req, _res, next) => {
+router.delete("/:id", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         idSchema.parse({ id: req.params.id });
         next();

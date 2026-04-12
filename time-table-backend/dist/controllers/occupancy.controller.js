@@ -11,12 +11,20 @@ exports.occupancyController = {
                 if (!isNaN(parsed))
                     excludeId = parsed;
             }
+            let academicYearId = undefined;
+            if (req.query.academicYearId && req.query.academicYearId !== "undefined") {
+                const parsed = parseInt(req.query.academicYearId, 10);
+                if (!isNaN(parsed))
+                    academicYearId = parsed;
+            }
             const allEntries = await client_1.prisma.timetableEntry.findMany({
-                where: excludeId ? {
-                    classSectionId: { not: excludeId }
-                } : undefined,
+                where: {
+                    ...(excludeId ? { classSectionId: { not: excludeId } } : {}),
+                    ...(academicYearId ? { classSection: { academicYearId } } : {}),
+                },
                 include: {
-                    labGroups: true
+                    labGroups: true,
+                    slot: true,
                 }
             });
             // teacherId -> day -> slot[]
@@ -37,20 +45,18 @@ exports.occupancyController = {
                 }
             };
             allEntries.forEach((entry) => {
-                if (entry.entryType === "THEORY") {
-                    // Add room
+                const slotOrder = entry.slot.order;
+                if (entry.entryType === "LECTURE") {
                     if (entry.roomId) {
-                        addBusy(roomsObj, entry.roomId, entry.day, entry.slotStart);
+                        addBusy(roomsObj, entry.roomId, entry.day, slotOrder);
                     }
-                    // Add teacher
                     if (entry.teacherId) {
-                        addBusy(teachersObj, entry.teacherId, entry.day, entry.slotStart);
+                        addBusy(teachersObj, entry.teacherId, entry.day, slotOrder);
                     }
                 }
                 else if (entry.entryType === "LAB") {
-                    // For labs, it spans 2 or 3 slots depending on slotStart. Let's assume standard 2-slot Lab for simplicity,
-                    // or we can just iterate 2 slots as standard
-                    const slots = [entry.slotStart, entry.slotStart + 1];
+                    // LAB spans startSlot and startSlot+1
+                    const slots = [slotOrder, slotOrder + 1];
                     slots.forEach(slot => {
                         entry.labGroups.forEach(le => {
                             addBusy(labsObj, le.labId, entry.day, slot);

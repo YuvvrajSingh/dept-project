@@ -32,6 +32,11 @@ enum NotificationLogType {
   ENTRY_DELETED
 }
 
+enum Role {
+  ADMIN
+  TEACHER
+}
+
 // ─── Core Lookup Tables ───────────────────────────────────────────────────────
 
 model AcademicYear {
@@ -128,9 +133,24 @@ model Teacher {
   isActive         Boolean           @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  user             User?
   teacherSubjects  TeacherSubject[]
   timetableEntries TimetableEntry[]
   labGroupEntries  LabGroupEntry[]
+}
+
+// Auth accounts: admins are not teachers; teachers link 1:1 via teacherId.
+// CHECK constraints on role vs teacherId are enforced in SQL migration.
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  role         Role
+  teacherId    Int?     @unique
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  teacher      Teacher? @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 }
 
 // ─── Junction Tables ─────────────────────────────────────────────────────────

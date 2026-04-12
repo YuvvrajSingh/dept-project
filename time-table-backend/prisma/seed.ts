@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, SubjectType } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import { PrismaClient, Role, SubjectType } from "@prisma/client";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is not set");
@@ -59,6 +60,7 @@ async function main() {
   await prisma.timetableEntry.deleteMany();
   await prisma.teacherSubject.deleteMany();
   await prisma.classSubject.deleteMany();
+  await prisma.user.deleteMany();
   await prisma.teacher.deleteMany();
   await prisma.subject.deleteMany();
   await prisma.classSection.deleteMany();
@@ -123,6 +125,14 @@ async function main() {
   console.log("✓ Rooms and labs seeded");
 
   // ── 7. Teachers & Subjects ───────────────────────────────────────────────────
+  for (const s of SUBJECTS) {
+    await prisma.subject.create({ data: s });
+  }
+  for (const t of TEACHERS) {
+    await prisma.teacher.create({ data: t });
+  }
+  console.log("✓ Teachers and subjects seeded");
+
   const teachers = await prisma.teacher.findMany();
   const subjects = await prisma.subject.findMany();
   const classSections = await prisma.classSection.findMany();
@@ -141,6 +151,22 @@ async function main() {
     }
   }
   console.log("✓ Assignments seeded");
+
+  // ── 8. Default admin user (override via ADMIN_EMAIL / ADMIN_PASSWORD) ────────
+  const adminEmail = (process.env.ADMIN_EMAIL ?? "admin@dept.local").trim().toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD ?? "changeme";
+  if (!process.env.ADMIN_PASSWORD) {
+    console.warn("⚠ ADMIN_PASSWORD not set — using default password \"changeme\" (dev only)");
+  }
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
+  await prisma.user.create({
+    data: {
+      email: adminEmail,
+      passwordHash,
+      role: Role.ADMIN,
+    },
+  });
+  console.log(`✓ Admin user seeded (${adminEmail})`);
 
   console.log("\nSeed completed successfully ✓");
 }

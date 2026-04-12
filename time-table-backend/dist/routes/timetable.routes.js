@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const zod_1 = require("zod");
 const timetable_controller_1 = require("../controllers/timetable.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 const idSchema = zod_1.z.object({ id: zod_1.z.coerce.number().int().positive() });
 const classSectionParamSchema = zod_1.z.object({
@@ -20,7 +21,7 @@ const theorySchema = zod_1.z.object({
         day: zod_1.z.coerce.number().int().min(1).max(6),
         slotStart: zod_1.z.coerce.number().int().min(1).max(6),
         slotEnd: zod_1.z.coerce.number().int().min(1).max(6).optional(),
-        entryType: zod_1.z.literal("THEORY"),
+        entryType: zod_1.z.literal("LECTURE"),
         subjectId: zod_1.z.coerce.number().int().positive(),
         teacherId: zod_1.z.coerce.number().int().positive(),
         roomId: zod_1.z.coerce.number().int().positive(),
@@ -46,7 +47,7 @@ const labSchema = zod_1.z.object({
 });
 const createEntrySchema = zod_1.z.union([theorySchema, labSchema]);
 const updateEntrySchema = zod_1.z.union([theorySchema, labSchema]);
-router.post("/entry", (req, _res, next) => {
+router.post("/entry", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         createEntrySchema.parse({ body: req.body });
         next();
@@ -55,7 +56,7 @@ router.post("/entry", (req, _res, next) => {
         next(error);
     }
 }, timetable_controller_1.timetableController.createEntry);
-router.put("/entry/:id", (req, _res, next) => {
+router.put("/entry/:id", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         idSchema.parse({ id: req.params.id });
         updateEntrySchema.parse({ body: req.body });
@@ -65,7 +66,7 @@ router.put("/entry/:id", (req, _res, next) => {
         next(error);
     }
 }, timetable_controller_1.timetableController.updateEntry);
-router.delete("/entry/:id", (req, _res, next) => {
+router.delete("/entry/:id", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         idSchema.parse({ id: req.params.id });
         next();
@@ -92,8 +93,8 @@ router.get("/room/:roomId", (req, _res, next) => {
         next(error);
     }
 }, timetable_controller_1.timetableController.getRoomOccupancy);
-router.delete("/clear-all", timetable_controller_1.timetableController.clearGlobalTimetable);
-router.delete("/factory-reset", timetable_controller_1.timetableController.factoryReset);
+router.delete("/clear-all", auth_middleware_1.requireAdmin, timetable_controller_1.timetableController.clearGlobalTimetable);
+router.delete("/factory-reset", auth_middleware_1.requireAdmin, timetable_controller_1.timetableController.factoryReset);
 router.get("/:classSectionId", (req, _res, next) => {
     try {
         classSectionParamSchema.parse({
@@ -116,7 +117,7 @@ router.get("/:classSectionId/export/pdf", (req, _res, next) => {
         next(error);
     }
 }, timetable_controller_1.timetableController.exportTimetablePdf);
-router.post("/:classSectionId/generate", (req, _res, next) => {
+router.post("/:classSectionId/generate", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         classSectionParamSchema.parse({
             classSectionId: req.params.classSectionId,
@@ -127,7 +128,7 @@ router.post("/:classSectionId/generate", (req, _res, next) => {
         next(error);
     }
 }, timetable_controller_1.timetableController.generateTimetable);
-router.delete("/:classSectionId/clear", (req, _res, next) => {
+router.delete("/:classSectionId/clear", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         classSectionParamSchema.parse({
             classSectionId: req.params.classSectionId,

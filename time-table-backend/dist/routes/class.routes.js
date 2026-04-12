@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const zod_1 = require("zod");
 const class_controller_1 = require("../controllers/class.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 const idParamSchema = zod_1.z.object({
     id: zod_1.z.coerce.number().int().positive(),
@@ -12,6 +13,7 @@ const classCreateSchema = zod_1.z.object({
         branchName: zod_1.z.string().trim().min(1).toUpperCase(),
         year: zod_1.z.union([zod_1.z.literal(2), zod_1.z.literal(3), zod_1.z.literal(4)]),
         semester: zod_1.z.coerce.number().int().min(1).max(8),
+        academicYearId: zod_1.z.coerce.number().int().positive(),
     }),
 });
 const classUpdateSchema = zod_1.z.object({
@@ -37,7 +39,10 @@ const subjectParamSchema = zod_1.z.object({
 const validate = (schema, payload) => {
     schema.parse(payload);
 };
-router.get("/", class_controller_1.classController.list);
+router.get("/", (req, _res, next) => {
+    req.academicYearId = req.query.academicYearId ? Number(req.query.academicYearId) : undefined;
+    next();
+}, class_controller_1.classController.list);
 router.get("/:id", (req, _res, next) => {
     try {
         validate(idParamSchema, { id: req.params.id });
@@ -47,7 +52,7 @@ router.get("/:id", (req, _res, next) => {
         next(error);
     }
 }, class_controller_1.classController.getById);
-router.post("/", (req, _res, next) => {
+router.post("/", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(classCreateSchema, { body: req.body });
         next();
@@ -56,7 +61,7 @@ router.post("/", (req, _res, next) => {
         next(error);
     }
 }, class_controller_1.classController.create);
-router.put("/:id", (req, _res, next) => {
+router.put("/:id", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(idParamSchema, { id: req.params.id });
         validate(classUpdateSchema, { body: req.body });
@@ -66,7 +71,7 @@ router.put("/:id", (req, _res, next) => {
         next(error);
     }
 }, class_controller_1.classController.update);
-router.delete("/:id", (req, _res, next) => {
+router.delete("/:id", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(idParamSchema, { id: req.params.id });
         next();
@@ -75,7 +80,7 @@ router.delete("/:id", (req, _res, next) => {
         next(error);
     }
 }, class_controller_1.classController.remove);
-router.post("/:id/subjects", (req, _res, next) => {
+router.post("/:id/subjects", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(idParamSchema, { id: req.params.id });
         validate(assignSubjectSchema, { body: req.body });
@@ -85,7 +90,7 @@ router.post("/:id/subjects", (req, _res, next) => {
         next(error);
     }
 }, class_controller_1.classController.assignSubject);
-router.delete("/:id/subjects/:subjectId", (req, _res, next) => {
+router.delete("/:id/subjects/:subjectId", auth_middleware_1.requireAdmin, (req, _res, next) => {
     try {
         validate(subjectParamSchema, { id: req.params.id, subjectId: req.params.subjectId });
         next();

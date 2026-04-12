@@ -11,11 +11,22 @@ import type {
   AcademicYear,
 } from "./types";
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000";
+/** Browser: same-origin `/api/*` (rewritten to Express). Server: direct backend URL. */
+function apiBase(): string {
+  if (typeof window !== "undefined") {
+    return "";
+  }
+  return (
+    process.env.API_BACKEND_URL?.trim().replace(/\/$/, "") ||
+    process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/$/, "") ||
+    "http://127.0.0.1:3001"
+  );
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${apiBase()}${path}`, {
     ...init,
+    credentials: "include",
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
   if (!res.ok) {
@@ -27,6 +38,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return res.json();
 }
+
+// ── Auth ──
+export const authApi = {
+  logout: () => request<void>("/api/auth/logout", { method: "POST" }),
+};
 
 // ── Academic Years ──
 export const academicYearApi = {
@@ -156,7 +172,8 @@ export const timetableApi = {
     request<{ success: boolean }>('/api/timetable/clear-all', { method: "DELETE" }),
   factoryReset: () =>
     request<{ success: boolean; message: string }>('/api/timetable/factory-reset', { method: "DELETE" }),
-  getExportPdfUrl: (classSectionId: number) => `${BASE}/api/timetable/${classSectionId}/export/pdf`,
+  getExportPdfUrl: (classSectionId: number) =>
+    `${typeof window !== "undefined" ? "" : apiBase()}/api/timetable/${classSectionId}/export/pdf`,
   getOccupancy: (excludeClassSectionId?: number, academicYearId?: number) => {
     const params = new URLSearchParams();
     if (excludeClassSectionId) params.set("excludeClassSectionId", String(excludeClassSectionId));
