@@ -1,5 +1,4 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
-import { TimetableEntryType, AcademicYearStatus } from "@prisma/client";
+import { Prisma, PrismaClient, TimetableEntryType, AcademicYearStatus, NotificationLogType } from "@prisma/client";
 import { prisma } from "../prisma/client";
 import { AppError } from "../utils/AppError";
 import { buildMatrix } from "../utils/timetableMatrix";
@@ -154,6 +153,45 @@ const formatClassLabel = (
   return `${branchName} Year ${classSection.year}`;
 };
 
+// ─── Logging Helper ──────────────────────────────────────────────────────────
+
+type LogParams = {
+  db: DbClient;
+  type: NotificationLogType;
+  timetableEntryId?: number;
+  performedBy?: string;
+  message: string;
+  metadata?: any;
+};
+
+const logActivity = async (params: LogParams) => {
+  await (params.db as PrismaClient).notificationLog.create({
+    data: {
+      timetableEntryId: params.timetableEntryId,
+      performedBy: params.performedBy || "System User",
+      type: params.type,
+      message: params.message,
+      metadata: params.metadata || {},
+      date: new Date(),
+    },
+  });
+};
+
+const getLogMetadata = (entry: any) => {
+  const subjectName = entry.subject?.name || (entry.labGroups?.[0]?.subject?.name) || "Unknown Subject";
+  const className = formatClassLabel(entry.classSection || entry.timetableEntry?.classSection);
+  const teacherName = entry.teacher?.name || (entry.labGroups?.[0]?.teacher?.name) || "Unknown Teacher";
+  const slotOrder = entry.slot?.order || entry.timetableEntry?.slot?.order || "?";
+  
+  return {
+    subjectName,
+    className,
+    teacherName,
+    day: entry.day || entry.timetableEntry?.day,
+    slotOrder,
+  };
+};
+
 // Scope filter: only check conflicts within the same academic year
 const yearScopeFilter = (academicYearId: number) => ({
   classSection: { academicYearId },
@@ -255,7 +293,7 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
     );
   }
 
-  return (db as PrismaClient).timetableEntry.create({
+  const entry = await (db as PrismaClient).timetableEntry.create({
     data: {
       classSectionId: data.classSectionId,
       day: data.day,
@@ -270,8 +308,20 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
       subject: true,
       teacher: true,
       room: true,
+      classSection: { include: { branch: true } },
     },
   });
+
+  const meta = getLogMetadata(entry);
+  await logActivity({
+    db,
+    type: NotificationLogType.ENTRY_CREATED,
+    timetableEntryId: entry.id,
+    message: `Created LECTURE: ${meta.subjectName} for ${meta.className} on Day ${meta.day} Slot ${meta.slotOrder}`,
+    metadata: meta,
+  });
+
+  return entry;
 };
 
 const createLab = async (db: DbClient, data: LabEntryInput) => {
@@ -371,7 +421,7 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
     }
   }
 
-  return (db as PrismaClient).timetableEntry.create({
+  const entry = await (db as PrismaClient).timetableEntry.create({
     data: {
       classSectionId: data.classSectionId,
       day: data.day,
@@ -389,6 +439,7 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
     },
     include: {
       slot: true,
+      classSection: { include: { branch: true } },
       labGroups: {
         include: {
           subject: true,
@@ -398,6 +449,17 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
       },
     },
   });
+
+  const meta = getLogMetadata(entry);
+  await logActivity({
+    db,
+    type: NotificationLogType.ENTRY_CREATED,
+    timetableEntryId: entry.id,
+    message: `Created LAB: ${meta.subjectName} for ${meta.className} on Day ${meta.day} Slot ${meta.slotOrder}`,
+    metadata: meta,
+  });
+
+  return entry;
 };
 
 // ─── Service Exports ──────────────────────────────────────────────────────────
@@ -433,6 +495,15 @@ export const timetableService = {
       throw new AppError("Cannot modify timetable in an archived academic year", 403, "FORBIDDEN");
     }
 
+    const meta = getLogMetadata(existing);
+    await logActivity({
+      db: prisma,
+      type: NotificationLogType.ENTRY_DELETED,
+      performedBy: "System User",
+      message: `Deleted ${existing.entryType}: ${meta.subjectName} for ${meta.className} on Day ${meta.day} Slot ${meta.slotOrder}`,
+      metadata: meta,
+    });
+
     await prisma.timetableEntry.delete({ where: { id } });
   },
 
@@ -458,13 +529,29 @@ export const timetableService = {
     }
 
     return prisma.$transaction(async (tx) => {
+      // Logic: Delete old then create new to handle type shifts (Theory -> Lab etc)
       await tx.timetableEntry.delete({ where: { id } });
 
+      let newEntry;
       if (data.entryType === TimetableEntryType.LAB || (data as LabEntryInput).labGroups) {
-        return createLab(tx, data as LabEntryInput);
+        newEntry = await createLab(tx, data as LabEntryInput);
+      } else {
+        newEntry = await createTheory(tx, data as TheoryEntryInput);
       }
 
-      return createTheory(tx, data as TheoryEntryInput);
+      const meta = getLogMetadata(newEntry);
+      await logActivity({
+        db: tx,
+        type: NotificationLogType.ENTRY_UPDATED,
+        timetableEntryId: newEntry.id,
+        message: `Updated entry: ${meta.subjectName} for ${meta.className} at Day ${meta.day} Slot ${meta.slotOrder}`,
+        metadata: {
+          previous: getLogMetadata(existing),
+          current: meta,
+        },
+      });
+
+      return newEntry;
     });
   },
 

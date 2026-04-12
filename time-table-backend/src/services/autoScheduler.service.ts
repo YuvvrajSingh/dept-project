@@ -1,4 +1,4 @@
-import { PrismaClient, TimetableEntryType, AcademicYearStatus } from "@prisma/client";
+import { PrismaClient, TimetableEntryType, AcademicYearStatus, NotificationLogType } from "@prisma/client";
 import { prisma } from "../prisma/client";
 import { AppError } from "../utils/AppError";
 import { LAB_GROUPS } from "../utils/timetableConstants";
@@ -8,7 +8,10 @@ export const autoSchedulerService = {
     // 1. Fetch class data and requirements
     const classSection = await prisma.classSection.findUnique({
       where: { id: classSectionId },
-      include: { subjects: { include: { subject: true } } },
+      include: { 
+        branch: true,
+        subjects: { include: { subject: true } } 
+      },
     });
 
     if (!classSection) throw new AppError("Class section not found", 404, "NOT_FOUND");
@@ -269,6 +272,22 @@ export const autoSchedulerService = {
           },
         });
       }
+    });
+    
+    // 9. Log activity summary
+    await prisma.notificationLog.create({
+      data: {
+        type: NotificationLogType.ENTRY_CREATED,
+        performedBy: "Auto-Scheduler",
+        message: `Timetable auto-generated for ${classSection.branch?.name ?? "Class"} Year ${classSection.year} — ${generatedTheoryPayloads.length} lectures and ${generatedLabPayloads.length} labs created.`,
+        date: new Date(),
+        metadata: {
+          classSectionId,
+          lecturesCount: generatedTheoryPayloads.length,
+          labsCount: generatedLabPayloads.length,
+          auditReport,
+        },
+      },
     });
 
     return { success: true, auditReport };

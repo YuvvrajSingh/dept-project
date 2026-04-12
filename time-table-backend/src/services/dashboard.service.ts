@@ -137,39 +137,21 @@ export const dashboardService = {
       }
     }
 
-    // 4. Live Audit Log — scoped to academic year
+    // 4. Live Audit Log — self-contained historical records
     const logs = await prisma.notificationLog.findMany({
       orderBy: { createdAt: "desc" },
-      take: 15
+      take: 20
     });
 
-    const entryIds = logs.map(l => l.timetableEntryId);
-    const logEntries = await prisma.timetableEntry.findMany({
-      where: {
-        id: { in: entryIds },
-        ...(resolvedYearId ? { classSection: { academicYearId: resolvedYearId } } : {}),
-      },
-      include: { subject: true, classSection: { include: { branch: true } } }
-    });
-    
-    const entryMap = new Map();
-    for (const e of logEntries) entryMap.set(e.id, e);
-
-    const auditFeed = logs
-      .filter(l => entryMap.has(l.timetableEntryId))
-      .map((l) => {
-        const entry = entryMap.get(l.timetableEntryId);
-        const subjectName = entry?.subject?.name || "Unknown";
-        const className = entry?.classSection?.branch?.name || "Unknown Class";
-        const type = l.type === "CANCELLATION" ? "CONFLICT DETECTED" : "SYSTEM NOTIFICATION";
-        return {
-          id: l.id,
-          timestamp: l.createdAt.toISOString(),
-          type,
-          message: `[${type}] ${subjectName} class for ${className} on Day ${entry?.day || '?'} Slot ${(entry as any)?.slot?.order || '?'} triggered an update.`,
-          classSectionId: entry?.classSectionId || null
-        };
-      });
+    const auditFeed = logs.map((l) => ({
+      id: l.id,
+      timestamp: l.createdAt.toISOString(),
+      type: l.type,
+      performedBy: l.performedBy,
+      message: l.message,
+      metadata: l.metadata,
+      classSectionId: (l.metadata as any)?.classSectionId || null,
+    }));
 
     // Get academic year info to return
     const academicYear = resolvedYearId

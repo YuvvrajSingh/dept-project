@@ -27,9 +27,9 @@ enum TimetableEntryType {
 
 // Typed notification categories — replaces the plain String column.
 enum NotificationLogType {
-  TIMETABLE_CHANGE
-  CANCELLATION
-  SUBSTITUTION
+  ENTRY_CREATED
+  ENTRY_UPDATED
+  ENTRY_DELETED
 }
 
 // ─── Core Lookup Tables ───────────────────────────────────────────────────────
@@ -131,7 +131,6 @@ model Teacher {
   teacherSubjects  TeacherSubject[]
   timetableEntries TimetableEntry[]
   labGroupEntries  LabGroupEntry[]
-  notificationLogs NotificationLog[]
 }
 
 // ─── Junction Tables ─────────────────────────────────────────────────────────
@@ -205,15 +204,12 @@ model LabGroupEntry {
 
 model NotificationLog {
   id               Int                 @id @default(autoincrement())
-  timetableEntryId Int
-  // teacherId is nullable: logs are historical records and must survive teacher deletion.
-  // SetNull preserves the audit trail; the log shows what happened even if the teacher is gone.
-  teacherId        Int?
+  timetableEntryId Int?                // Nullable to survive entry deletion
+  performedBy      String?             // "Admin", teacher name, etc.
   type             NotificationLogType
+  message          String              // Human-readable description
+  metadata         Json?               // Structured data (subject, teacher, etc.)
   date             DateTime            @db.Date
   createdAt        DateTime            @default(now())
-  timetableEntry   TimetableEntry      @relation(fields: [timetableEntryId], references: [id], onDelete: Cascade)
-  teacher          Teacher?            @relation(fields: [teacherId], references: [id], onDelete: SetNull)
-
-  @@unique([timetableEntryId, teacherId, type, date])
+  timetableEntry   TimetableEntry?     @relation(fields: [timetableEntryId], references: [id], onDelete: SetNull)
 }

@@ -123,9 +123,24 @@ async function main() {
   console.log("✓ Rooms and labs seeded");
 
   // ── 7. Teachers & Subjects ───────────────────────────────────────────────────
-  await prisma.teacher.createMany({ data: TEACHERS });
-  await prisma.subject.createMany({ data: SUBJECTS });
-  console.log("✓ Teachers and subjects seeded");
+  const teachers = await prisma.teacher.findMany();
+  const subjects = await prisma.subject.findMany();
+  const classSections = await prisma.classSection.findMany();
+
+  // Assign all subjects to all teachers (for demo)
+  for (const t of teachers) {
+    for (const s of subjects) {
+      await prisma.teacherSubject.create({ data: { teacherId: t.id, subjectId: s.id } });
+    }
+  }
+
+  // Assign all subjects to all class sections (for demo)
+  for (const cs of classSections) {
+    for (const s of subjects) {
+      await prisma.classSubject.create({ data: { classSectionId: cs.id, subjectId: s.id } });
+    }
+  }
+  console.log("✓ Assignments seeded");
 
   console.log("\nSeed completed successfully ✓");
 }
