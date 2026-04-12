@@ -191,3 +191,14 @@ export const dashboardApi = {
     return request<any>(url);
   },
 };
+
+// ── Public API (No Auth Required) ──
+export const publicApi = {
+  getActiveYear: () => request<AcademicYear>("/api/public/active-year"),
+  getClasses: (academicYearId?: number) => {
+    const url = academicYearId ? `/api/public/classes?academicYearId=${academicYearId}` : "/api/public/classes";
+    return request<ClassSection[]>(url);
+  },
+  getMatrix: (classSectionId: number) =>
+    request<TimetableMatrix>(`/api/public/timetable/${classSectionId}`),
+};

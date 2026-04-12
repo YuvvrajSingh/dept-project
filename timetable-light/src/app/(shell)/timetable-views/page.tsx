@@ -285,13 +285,29 @@ function TimetableViewsInner() {
         )}
 
         {viewMode === "class" && selectedClass && (
-          <button
-            onClick={handleExportPdf}
-            className="h-[42px] px-6 bg-primary-container text-white font-bold text-sm rounded-lg hover:opacity-90 transition-all flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-sm">print</span>
-            Export / Print
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                const url = new URL(window.location.origin + '/timetable');
+                if (branch) url.searchParams.set("branch", branch);
+                if (semester) url.searchParams.set("semester", semester.toString());
+                navigator.clipboard.writeText(url.toString());
+                alert("Public link copied to clipboard!");
+              }}
+              className="h-[42px] px-4 bg-surface-container-high text-on-surface font-bold text-sm rounded-lg hover:bg-surface-container-highest transition-all flex items-center gap-2 border border-outline-variant/20"
+              title="Copy Public Link"
+            >
+              <span className="material-symbols-outlined text-sm">share</span>
+              Share Link
+            </button>
+            <button
+              onClick={handleExportPdf}
+              className="h-[42px] px-6 bg-primary-container text-white font-bold text-sm rounded-lg hover:opacity-90 transition-all flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-sm">print</span>
+              Export / Print
+            </button>
+          </div>
         )}
       </div>
 
@@ -299,9 +315,10 @@ function TimetableViewsInner() {
       {loading ? (
         <div className="p-16 text-center text-sm text-on-surface-variant">Loading schedule...</div>
       ) : viewMode === "class" && matrix ? (
-        <div className="bg-surface-container-highest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10">
-          <div className="grid grid-cols-[80px_repeat(6,1fr)] bg-surface-container-low border-b border-outline-variant/10">
-            <div className="p-4" />
+        <div className="bg-surface-container-highest rounded-xl shadow-sm border border-outline-variant/10 overflow-x-auto">
+          <div className="min-w-[1000px]">
+            <div className="grid grid-cols-[80px_repeat(6,1fr)] bg-surface-container-low border-b border-outline-variant/10">
+              <div className="p-4" />
             {[1,2,3,4,5,6].map((d) => (
               <div key={d} className="p-4 text-center font-black text-xs uppercase tracking-widest text-on-surface">{DAY_SHORT[d]}</div>
             ))}
@@ -354,11 +371,12 @@ function TimetableViewsInner() {
                 })}
               </Fragment>
             ))}
+            </div>
           </div>
         </div>
       ) : (viewMode === "teacher" || viewMode === "room") && entries.length > 0 ? (
-        <div className="bg-surface-container-low rounded-xl overflow-hidden border border-outline-variant/10">
-          <table className="w-full text-left border-collapse">
+        <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-surface-container-highest/50">
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Day</th>

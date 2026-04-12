@@ -18,6 +18,7 @@ const occupancy_routes_1 = __importDefault(require("./routes/occupancy.routes"))
 const academicYear_routes_1 = __importDefault(require("./routes/academicYear.routes"));
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
+const public_routes_1 = __importDefault(require("./routes/public.routes"));
 const auth_middleware_1 = require("./middleware/auth.middleware");
 const errorHandler_1 = require("./middleware/errorHandler");
 const app = (0, express_1.default)();
@@ -43,6 +44,7 @@ app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });
 });
 app.use("/api/auth", auth_routes_1.default);
+app.use("/api/public", public_routes_1.default);
 app.use("/api", auth_middleware_1.authenticate);
 app.use("/api/users", user_routes_1.default);
 app.use("/api/teachers", teacher_routes_1.default);

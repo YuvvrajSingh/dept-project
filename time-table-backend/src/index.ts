@@ -13,6 +13,7 @@ import occupancyRoutes from "./routes/occupancy.routes";
 import academicYearRoutes from "./routes/academicYear.routes";
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
+import publicRoutes from "./routes/public.routes";
 import { authenticate } from "./middleware/auth.middleware";
 import { errorHandler } from "./middleware/errorHandler";
 
@@ -44,6 +45,7 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/public", publicRoutes);
 app.use("/api", authenticate);
 app.use("/api/users", userRoutes);
 app.use("/api/teachers", teacherRoutes);
