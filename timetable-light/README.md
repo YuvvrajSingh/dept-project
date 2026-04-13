@@ -2,6 +2,9 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+> [!TIP]
+> **Smartphone Viewing:** To view the timetable on your phone, see the [Master README](../README.md#remote-access-smartphone-viewing) for networking instructions.
+
 First, run the development server:
 
 ```bash

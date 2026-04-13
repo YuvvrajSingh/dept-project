@@ -127,11 +127,36 @@ body {
 /* ── Timetable grid ── */
 .timetable-grid {
   display: grid;
-  grid-template-columns: 80px repeat(6, 1fr);
+  grid-template-columns: 56px repeat(6, 1fr);
+}
+
+@media (min-width: 768px) {
+  .timetable-grid {
+    grid-template-columns: 80px repeat(6, 1fr);
+  }
 }
 .slot-cell {
-  min-height: 110px;
+  min-height: 80px;
 }
+
+@media (min-width: 768px) {
+  .slot-cell {
+    min-height: 110px;
+  }
+}
+
+.lab-merged-cell {
+  grid-row: span 2;
+  min-height: 160px; /* 2× mobile */
+}
+
+@media (min-width: 768px) {
+  .lab-merged-cell {
+    min-height: 220px; /* 2× desktop */
+  }
+}
+
+
 .lab-merged-cell {
   grid-row: span 2;
   min-height: 220px;

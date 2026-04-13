@@ -87,24 +87,24 @@ function PublicTimetableInner() {
   const subjectById = Object.fromEntries(subjects.map(s => [s.id, s]));
 
   function renderSlotCell(slotData: SlotData) {
-    if (!slotData) return <div className="bg-surface-container-lowest m-0.5 p-3 rounded opacity-20 slot-cell" />;
+    if (!slotData) return <div className="bg-surface-container-lowest m-0.5 p-1.5 md:p-3 rounded opacity-20 slot-cell" />;
     if (slotData.type === "LAB_CONTINUATION") return null;
     if (slotData.type === "THEORY") {
       return (
-        <div className="bg-surface-container-lowest m-0.5 p-3 rounded shadow-sm border-l-4 border-indigo-600 slot-cell">
-          <div className="text-[10px] font-bold text-indigo-600 mb-1">THEORY</div>
-          <div className="text-sm font-bold text-on-surface leading-tight">
+        <div className="bg-surface-container-lowest m-0.5 p-1.5 md:p-3 rounded shadow-sm border-l-4 border-indigo-600 slot-cell">
+          <div className="text-[8px] md:text-[10px] font-bold text-indigo-600 mb-1">THEORY</div>
+          <div className="text-[11px] md:text-sm font-bold text-on-surface leading-tight">
             {subjectById[slotData.subjectId]?.abbreviation ?? slotData.subjectCode}
           </div>
-          <div className="mt-2 text-[10px] text-on-surface-variant">{slotData.teacherAbbr} // {slotData.roomName}</div>
+          <div className="mt-1 md:mt-2 text-[8px] md:text-[10px] text-on-surface-variant">{slotData.teacherAbbr} // {slotData.roomName}</div>
         </div>
       );
     }
     if (slotData.type === "LAB") {
       return (
-        <div className="lab-merged-cell m-0.5 p-3 rounded shadow-sm border-l-4 border-tertiary-container bg-surface-container-lowest">
-          <div className="text-[10px] font-bold text-on-tertiary-container mb-1 uppercase tracking-tighter">LAB</div>
-          <div className="text-sm font-bold text-on-surface leading-tight">LABS</div>
+        <div className="lab-merged-cell m-0.5 p-1.5 md:p-3 rounded shadow-sm border-l-4 border-tertiary-container bg-surface-container-lowest">
+          <div className="text-[8px] md:text-[10px] font-bold text-on-tertiary-container mb-1 uppercase tracking-tighter">LAB</div>
+          <div className="text-[11px] md:text-sm font-bold text-on-surface leading-tight">LABS</div>
           <div className="mt-2 space-y-1">
             {Object.entries(slotData.groups).map(([g, info]) => (
               <div key={g} className="text-[9px] bg-surface-container-low p-1 rounded font-bold">
@@ -125,31 +125,31 @@ function PublicTimetableInner() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-surface-container border-b border-outline-variant/20 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="bg-surface-container border-b border-outline-variant/20 p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-black text-primary tracking-tighter italic">Class Timetable</h1>
             {activeYear && <p className="text-xs font-bold text-on-surface-variant">Academic Year: {activeYear.startYear}-{activeYear.startYear+1}</p>}
           </div>
 
-          <div className="flex gap-4 items-center bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/10 shadow-sm">
-             <div className="flex flex-col">
+          <div className="flex flex-wrap gap-3 items-center bg-surface-container-lowest p-2 rounded-lg border border-outline-variant/10 shadow-sm w-full md:w-auto">
+             <div className="flex flex-col flex-1 min-w-30">
               <label className="text-[9px] font-bold uppercase text-on-surface-variant px-2">Branch</label>
               <select
                 value={branch ?? ""}
                 onChange={(e) => setBranch(e.target.value)}
-                className="appearance-none bg-transparent border-none px-2 py-1 text-sm font-bold outline-none cursor-pointer"
+                className="appearance-none bg-transparent border-none px-2 py-1 text-sm font-bold outline-none cursor-pointer w-full"
               >
               <option value="" disabled>Select Branch</option>
                 {availableBranches.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
-            <div className="w-px h-8 bg-outline-variant/20"></div>
-            <div className="flex flex-col">
+            <div className="w-px h-8 bg-outline-variant/20 hidden md:block"></div>
+            <div className="flex flex-col flex-1 min-w-35">
               <label className="text-[9px] font-bold uppercase text-on-surface-variant px-2">Semester</label>
               <select
                 value={semester ?? ""}
                 onChange={(e) => setSemester(Number(e.target.value))}
-                className="appearance-none bg-transparent border-none px-2 py-1 text-sm font-bold outline-none cursor-pointer min-w-[120px]"
+                className="appearance-none bg-transparent border-none px-2 py-1 text-sm font-bold outline-none cursor-pointer w-full md:min-w-30"
               >
                 <option value="" disabled>Select Semester</option>
                 {availableSemesters.map((s) => <option key={s} value={s}>Semester {s}</option>)}
@@ -158,24 +158,28 @@ function PublicTimetableInner() {
           </div>
       </div>
 
-      <div className="p-8 max-w-[1400px] mx-auto">
+      <div className="p-3 md:p-8 max-w-350 mx-auto">
         {matrixLoading ? (
             <div className="py-20 text-center text-sm font-bold text-on-surface-variant animate-pulse">Loading Matrix...</div>
         ) : matrix ? (
-            <div className="bg-surface-container-highest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10 overflow-x-auto">
-              <div className="min-w-[1000px]">
-                <div className="grid grid-cols-[80px_repeat(6,1fr)] bg-surface-container-low border-b border-outline-variant/10">
+            <div className="bg-surface-container-highest rounded-xl shadow-sm border border-outline-variant/10">
+              <div className="overflow-x-auto">
+                <div className="min-w-200">
+                <div className="grid grid-cols-[56px_repeat(6,1fr)] md:grid-cols-[80px_repeat(6,1fr)] bg-surface-container-low border-b border-outline-variant/10">
                     <div className="p-4" />
                     {[1,2,3,4,5,6].map((d) => (
-                    <div key={d} className="p-4 text-center font-black text-xs uppercase tracking-widest text-on-surface">{DAY_SHORT[d]}</div>
+                    <div key={d} className="p-2 md:p-4 text-center font-black text-[10px] md:text-xs uppercase tracking-widest text-on-surface">
+                      <span className="md:hidden">{DAY_SHORT[d][0]}</span>
+                      <span className="hidden md:inline">{DAY_SHORT[d]}</span>
+                    </div>
                     ))}
                 </div>
                 <div className="timetable-grid">
                     {[1,2,3].map((slot) => (
                     <Fragment key={`slotGroup-${slot}`}>
-                        <div key={`l-${slot}`} className="flex flex-col justify-center items-center bg-surface-container-low border-r border-b border-outline-variant/10 p-2 slot-cell">
-                        <span className="text-xs font-black text-on-surface">{SLOT_TIMES[slot].label}</span>
-                        <span className="text-[9px] text-on-surface-variant font-medium">{SLOT_TIMES[slot].start}</span>
+                        <div key={`l-${slot}`} className="flex flex-col justify-center items-center bg-surface-container-low border-r border-b border-outline-variant/10 p-1 md:p-2 slot-cell">
+                        <span className="text-[10px] md:text-xs font-black text-on-surface">{SLOT_TIMES[slot].label}</span>
+                        <span className="hidden md:block text-[9px] text-on-surface-variant font-medium">{SLOT_TIMES[slot].start}</span>
                         </div>
                         {[1,2,3,4,5,6].map((day) => {
                         const sd = matrix.timetable[String(day)]?.slots[String(slot)] ?? null;
@@ -198,9 +202,9 @@ function PublicTimetableInner() {
                     </div>
                     {[4,5,6].map((slot) => (
                     <Fragment key={`slotGroup-${slot}`}>
-                        <div key={`l-${slot}`} className="flex flex-col justify-center items-center bg-surface-container-low border-r border-b border-outline-variant/10 p-2 slot-cell">
-                        <span className="text-xs font-black text-on-surface">{SLOT_TIMES[slot].label}</span>
-                        <span className="text-[9px] text-on-surface-variant font-medium">{SLOT_TIMES[slot].start}</span>
+                      <div key={`l-${slot}`} className="flex flex-col justify-center items-center bg-surface-container-low border-r border-b border-outline-variant/10 p-1 md:p-2 slot-cell">
+                      <span className="text-[10px] md:text-xs font-black text-on-surface">{SLOT_TIMES[slot].label}</span>
+                      <span className="hidden md:block text-[9px] text-on-surface-variant font-medium">{SLOT_TIMES[slot].start}</span>
                         </div>
                         {[1,2,3,4,5,6].map((day) => {
                         const sd = matrix.timetable[String(day)]?.slots[String(slot)] ?? null;
@@ -218,6 +222,7 @@ function PublicTimetableInner() {
                         })}
                     </Fragment>
                     ))}
+                </div>
                 </div>
               </div>
             </div>

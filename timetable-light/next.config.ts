@@ -6,6 +6,7 @@ const API_BACKEND_URL =
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  allowedDevOrigins: ["*.trycloudflare.com"],
   async rewrites() {
     return [
       {
