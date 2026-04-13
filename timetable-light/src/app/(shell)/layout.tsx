@@ -28,6 +28,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }
           return;
         }
+
+        const data = await res.json();
+        if (data?.user?.role === "TEACHER") {
+          if (active) {
+            router.replace("/teacher-portal");
+          }
+          return;
+        }
       } catch {
         if (active) {
           router.replace("/login");

@@ -136,7 +136,7 @@ export default function TeacherPortalLayout({ children }: { children: React.Reac
 
       {/* Page content */}
       <main className="flex-1 pt-16">
-        <div className="max-w-5xl mx-auto p-8">
+        <div className="max-w-7xl mx-auto p-8">
           {children}
         </div>
       </main>
