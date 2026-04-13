@@ -53,7 +53,7 @@ export default function LoginForm() {
           Academic Email
         </label>
         <input
-          className="w-full bg-surface-container-low border-none border-b-2 border-outline-variant/20 focus:ring-0 focus:border-secondary transition-colors py-3 text-on-surface placeholder:text-outline/50 outline-none"
+          className="w-full bg-surface-container-low border-b-2 border-outline-variant/20 focus:ring-0 focus:border-secondary transition-colors py-3 text-on-surface placeholder:text-outline/50 outline-none"
           id="email"
           name="email"
           placeholder="hod.cse@university.edu"
@@ -78,7 +78,7 @@ export default function LoginForm() {
           </span>
         </div>
         <input
-          className="w-full bg-surface-container-low border-none border-b-2 border-outline-variant/20 focus:ring-0 focus:border-secondary transition-colors py-3 text-on-surface placeholder:text-outline/50 outline-none"
+          className="w-full bg-surface-container-low border-b-2 border-outline-variant/20 focus:ring-0 focus:border-secondary transition-colors py-3 text-on-surface placeholder:text-outline/50 outline-none"
           id="password"
           name="password"
           placeholder="••••••••••••"
@@ -90,25 +90,16 @@ export default function LoginForm() {
         />
       </div>
 
-      <div className="flex items-center gap-3 py-2">
-        <input
-          className="w-4 h-4 rounded-sm border-outline-variant text-secondary focus:ring-secondary"
-          id="remember"
-          type="checkbox"
-          disabled
-          title="Session length is controlled by the server"
-        />
-        <label className="text-xs font-medium text-on-surface-variant" htmlFor="remember">
-          Maintain active session (server-controlled)
-        </label>
-      </div>
+      <p className="text-xs text-on-surface-variant/60 italic py-2">
+        Session length is managed server-side.
+      </p>
 
       <button
-        className="w-full litho-gradient text-white font-bold py-4 rounded-lg architectural-shadow hover:translate-y-[-1px] active:scale-[0.98] transition-all flex items-center justify-center gap-2 group cursor-pointer disabled:opacity-60 disabled:pointer-events-none"
+        className="w-full litho-gradient text-white font-bold py-4 rounded-lg architectural-shadow hover:-translate-y-px active:scale-[0.98] transition-all flex items-center justify-center gap-2 group cursor-pointer disabled:opacity-60 disabled:pointer-events-none"
         type="submit"
         disabled={loading}
       >
-        <span>{loading ? "SIGNING IN…" : "ESTABLISH SESSION"}</span>
+        <span>{loading ? "SIGNING IN..." : "ACCESS PORTAL"}</span>
         <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
           arrow_forward
         </span>
