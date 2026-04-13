@@ -1,17 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { teacherMeApi, teacherApi, subjectApi } from "@/lib/api";
-import type { Teacher, Subject, TeacherSubject } from "@/lib/types";
+import { teacherMeApi, teacherApi, subjectApi, classApi, academicYearApi } from "@/lib/api";
+import type { Teacher, Subject, TeacherSubject, ClassSection, ClassSubject } from "@/lib/types";
 
 export default function TeacherPortalSubjectsPage() {
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [assigned, setAssigned] = useState<TeacherSubject[]>([]);
   const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
+  const [classes, setClasses] = useState<ClassSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingId, setAddingId] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
+  
+  // Filter by class state
+  const [filterClassId, setFilterClassId] = useState<string>("");
+  const [classSubjectIds, setClassSubjectIds] = useState<number[] | null>(null);
+  const [classLoading, setClassLoading] = useState(false);
+  
   const [error, setError] = useState<string | null>(null);
 
   async function loadData() {
@@ -20,12 +27,20 @@ export default function TeacherPortalSubjectsPage() {
     try {
       const me = await teacherMeApi.get();
       setTeacher(me);
-      const [asgn, all] = await Promise.all([
+      
+      const [asgn, all, activeYear] = await Promise.all([
         teacherApi.getSubjects(me.id),
         subjectApi.list(),
+        academicYearApi.getActive().catch(() => null),
       ]);
+      
+      const classList = activeYear 
+        ? await classApi.list(activeYear.id).catch(() => []) 
+        : await classApi.list().catch(() => []);
+        
       setAssigned(asgn);
       setAllSubjects(all);
+      setClasses(classList);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load data.");
     } finally {
@@ -35,8 +50,27 @@ export default function TeacherPortalSubjectsPage() {
 
   useEffect(() => { loadData(); }, []);
 
+  async function handleFilterClass(classIdStr: string) {
+    setFilterClassId(classIdStr);
+    setSelectedSubjectId("");
+    if (!classIdStr) {
+      setClassSubjectIds(null);
+      return;
+    }
+    setClassLoading(true);
+    try {
+      const cs = await classApi.getSubjects(parseInt(classIdStr)).catch(() => []);
+      setClassSubjectIds(cs.map((x: ClassSubject) => x.subjectId));
+    } finally {
+      setClassLoading(false);
+    }
+  }
+
   const assignedIds = new Set(assigned.map((a) => a.subjectId));
-  const availableSubjects = allSubjects.filter((s) => s.isActive && !assignedIds.has(s.id));
+  const availableSubjects = (classSubjectIds !== null
+    ? allSubjects.filter((s) => classSubjectIds.includes(s.id))
+    : allSubjects
+  ).filter((s) => s.isActive && !assignedIds.has(s.id));
 
   async function handleAssign() {
     if (!selectedSubjectId || !teacher) return;
@@ -175,28 +209,50 @@ export default function TeacherPortalSubjectsPage() {
             </h3>
           </div>
           <div className="px-6 py-5 space-y-4">
-            <div className="space-y-2">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                Select Subject
-              </label>
-              <select
-                value={selectedSubjectId}
-                onChange={(e) => setSelectedSubjectId(e.target.value)}
-                className="w-full appearance-none bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-3 text-sm font-bold text-on-surface outline-none focus:border-secondary transition-colors"
-                disabled={availableSubjects.length === 0}
-              >
-                <option value="">Choose a subject...</option>
-                {availableSubjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    [{s.type}] {s.abbreviation || s.name}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                  Filter by Class (Optional)
+                </label>
+                <select
+                  value={filterClassId}
+                  onChange={(e) => handleFilterClass(e.target.value)}
+                  className="w-full appearance-none bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-3 text-sm font-bold text-on-surface outline-none focus:border-secondary transition-colors"
+                >
+                  <option value="">All subjects</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.branch?.name} Sem {c.semester} (Year {c.year})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                  Select Subject
+                </label>
+                <select
+                  value={selectedSubjectId}
+                  onChange={(e) => setSelectedSubjectId(e.target.value)}
+                  className="w-full appearance-none bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-3 text-sm font-bold text-on-surface outline-none focus:border-secondary transition-colors disabled:opacity-50"
+                  disabled={classLoading || availableSubjects.length === 0}
+                >
+                  <option value="">
+                    {classLoading ? "Loading..." : "Choose a subject..."}
                   </option>
-                ))}
-              </select>
-              {availableSubjects.length === 0 && (
-                <p className="text-[11px] text-outline italic">
-                  All active subjects are already assigned.
-                </p>
-              )}
+                  {availableSubjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      [{s.type}] {s.code} — {s.name}
+                    </option>
+                  ))}
+                </select>
+                {availableSubjects.length === 0 && !classLoading && (
+                  <p className="text-[11px] text-outline italic">
+                    All active subjects are already assigned or none match the filter.
+                  </p>
+                )}
+              </div>
             </div>
 
             <button
