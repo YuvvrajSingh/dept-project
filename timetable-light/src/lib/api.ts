@@ -44,6 +44,29 @@ export const authApi = {
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
 };
 
+// ── User management (admin) ──
+export type UserAccount = {
+  id: number;
+  email: string;
+  role: "ADMIN" | "TEACHER";
+  teacherId: number | null;
+  isActive: boolean;
+  createdAt: string;
+  teacher: { id: number; name: string; abbreviation: string } | null;
+};
+
+export const userApi = {
+  list: () => request<UserAccount[]>("/api/users"),
+  create: (data: { email: string; password: string; role: "TEACHER"; teacherId: number }) =>
+    request<UserAccount>("/api/users", { method: "POST", body: JSON.stringify(data) }),
+  delete: (id: number) => request(`/api/users/${id}`, { method: "DELETE" }),
+};
+
+// ── Teacher self-service ──
+export const teacherMeApi = {
+  get: () => request<Teacher>("/api/teachers/me"),
+};
+
 // ── Academic Years ──
 export const academicYearApi = {
   list: () => request<AcademicYear[]>("/api/academic-years"),

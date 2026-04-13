@@ -75,6 +75,47 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+/**
+ * Allows access only to the teacher who owns the record identified by `:id` (or `:teacherId`)
+ * in the route params. The param name is resolved in order: `teacherId`, then `id`.
+ */
+export function requireTeacherSelf(req: Request, res: Response, next: NextFunction) {
+  const result = verifyAndAttachUser(req);
+  if (!("ok" in result)) {
+    return res.status(result.status).json({ error: result.code, message: result.message });
+  }
+  if (req.user?.role !== "TEACHER") {
+    return res.status(403).json({ error: "FORBIDDEN", message: "Teacher access required" });
+  }
+  const paramId = Number(req.params.teacherId ?? req.params.id);
+  if (!Number.isFinite(paramId) || req.user.teacherId !== paramId) {
+    return res.status(403).json({ error: "FORBIDDEN", message: "You can only manage your own records" });
+  }
+  next();
+}
+
+/**
+ * Allows access if the caller is an ADMIN, OR if the caller is the TEACHER who owns
+ * the record (resolved via `:id` or `:teacherId` route param).
+ */
+export function requireAdminOrTeacherSelf(req: Request, res: Response, next: NextFunction) {
+  const result = verifyAndAttachUser(req);
+  if (!("ok" in result)) {
+    return res.status(result.status).json({ error: result.code, message: result.message });
+  }
+  if (req.user?.role === "ADMIN") {
+    return next();
+  }
+  if (req.user?.role === "TEACHER") {
+    const paramId = Number(req.params.teacherId ?? req.params.id);
+    if (Number.isFinite(paramId) && req.user.teacherId === paramId) {
+      return next();
+    }
+    return res.status(403).json({ error: "FORBIDDEN", message: "You can only manage your own records" });
+  }
+  return res.status(403).json({ error: "FORBIDDEN", message: "Access denied" });
+}
+
 export function signSessionToken(user: {
   id: number;
   role: Role;

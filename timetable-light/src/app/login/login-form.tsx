@@ -28,8 +28,11 @@ export default function LoginForm() {
         setError(typeof body.message === "string" ? body.message : "Sign-in failed");
         return;
       }
-      router.replace("/dashboard");
+      // Redirect based on role — admins go to the admin dashboard, teachers to their portal.
+      const role = body.user?.role;
+      router.replace(role === "TEACHER" ? "/teacher-portal" : "/dashboard");
       router.refresh();
+
     } catch {
       setError("Could not reach the server. Is the API running?");
     } finally {

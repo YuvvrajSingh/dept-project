@@ -34,6 +34,7 @@ export interface Subject {
   abbreviation: string;
   type: "THEORY" | "LAB";
   creditHours: number;
+  isActive?: boolean;
 }
 
 export interface Teacher {

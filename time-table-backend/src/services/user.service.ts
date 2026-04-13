@@ -81,4 +81,34 @@ export const userService = {
       },
     });
   },
+
+  async listUsers() {
+    return prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        teacherId: true,
+        isActive: true,
+        createdAt: true,
+        teacher: {
+          select: { id: true, name: true, abbreviation: true },
+        },
+      },
+      orderBy: [{ role: "asc" }, { createdAt: "desc" }],
+    });
+  },
+
+  async deleteUser(id: number) {
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new AppError("User not found", 404, "NOT_FOUND");
+    }
+    // Soft delete — preserves audit trail; admin can see the account went inactive.
+    return prisma.user.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  },
 };
+

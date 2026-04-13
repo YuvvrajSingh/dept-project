@@ -11,7 +11,9 @@ const navItems = [
   { href: "/assignments", label: "Assignments", icon: "assignment" },
   { href: "/timetable-builder", label: "Timetable Builder", icon: "calendar_add_on" },
   { href: "/timetable-views", label: "Timetable Views", icon: "calendar_view_day" },
+  { href: "/dashboard/teacher-accounts", label: "Teacher Accounts", icon: "manage_accounts" },
 ];
+
 
 export default function Sidebar() {
   const pathname = usePathname();

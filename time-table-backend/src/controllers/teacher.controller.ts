@@ -1,7 +1,22 @@
 import type { NextFunction, Request, Response } from "express";
 import { teacherService } from "../services/teacher.service";
+import { AppError } from "../utils/AppError";
 
 export const teacherController = {
+  /** GET /api/teachers/me — returns the Teacher record for the authenticated teacher user. */
+  async getMe(req: Request, res: Response, next: NextFunction) {
+    try {
+      const teacherId = req.user?.teacherId;
+      if (!teacherId) {
+        throw new AppError("No teacher profile linked to this account", 403, "FORBIDDEN");
+      }
+      const data = await teacherService.getTeacherById(teacherId);
+      res.status(200).json(data);
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async list(_req: Request, res: Response, next: NextFunction) {
     try {
       const data = await teacherService.listTeachers();

@@ -34,6 +34,8 @@ const createUserSchema = z
     }
   });
 
+router.get("/", userController.list);
+
 router.post("/", (req, _res, next) => {
   try {
     createUserSchema.parse({ body: req.body });
@@ -43,4 +45,7 @@ router.post("/", (req, _res, next) => {
   }
 }, userController.create);
 
+router.delete("/:id", userController.remove);
+
 export default router;
+

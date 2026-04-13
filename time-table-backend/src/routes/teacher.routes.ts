@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { teacherController } from "../controllers/teacher.controller";
-import { requireAdmin } from "../middleware/auth.middleware";
+import { authenticate, requireAdmin, requireAdminOrTeacherSelf } from "../middleware/auth.middleware";
 
 const router = Router();
 
@@ -43,6 +43,9 @@ const validate = (schema: z.ZodSchema, payload: unknown) => {
 };
 
 router.get("/", teacherController.list);
+
+// Must be before /:id to avoid matching "me" as a numeric id
+router.get("/me", authenticate, teacherController.getMe);
 
 router.get("/:id", (req, _res, next) => {
   try {
@@ -86,7 +89,7 @@ router.delete("/:id", requireAdmin, (req, _res, next) => {
   }
 }, teacherController.remove);
 
-router.post("/:id/subjects", requireAdmin, (req, _res, next) => {
+router.post("/:id/subjects", requireAdminOrTeacherSelf, (req, _res, next) => {
   try {
     validate(idParamSchema, { id: req.params.id });
     validate(assignSubjectSchema, { body: req.body });
@@ -96,7 +99,7 @@ router.post("/:id/subjects", requireAdmin, (req, _res, next) => {
   }
 }, teacherController.assignSubject);
 
-router.delete("/:id/subjects/:subjectId", requireAdmin, (req, _res, next) => {
+router.delete("/:id/subjects/:subjectId", requireAdminOrTeacherSelf, (req, _res, next) => {
   try {
     validate(subjectParamSchema, { id: req.params.id, subjectId: req.params.subjectId });
     next();
