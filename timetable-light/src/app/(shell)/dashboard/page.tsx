@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { teacherApi, subjectApi, classApi, roomApi, labApi, dashboardApi } from "@/lib/api";
 import { useAcademicYear } from "@/contexts/academic-year-context";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { SkeletonStatCard, SkeletonActionCard, SkeletonChart, SkeletonList, SkeletonProgressBar } from "@/components/skeleton";
 
 interface Stats {
   teachers: number;
@@ -76,25 +77,35 @@ export default function DashboardPage() {
           Department Overview
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {statCards.map((card) => (
-            <div
-              key={card.label}
-              className="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/10 hover:shadow-lg transition-all group"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <span className={`material-symbols-outlined ${card.color} p-2 ${card.bg} rounded-lg`}>
-                  {card.icon}
-                </span>
-                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter opacity-40">
-                  Live
-                </span>
+          {loading ? (
+            <>
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+            </>
+          ) : (
+            statCards.map((card) => (
+              <div
+                key={card.label}
+                className="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/10 hover:shadow-lg transition-all group"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <span className={`material-symbols-outlined ${card.color} p-2 ${card.bg} rounded-lg`}>
+                    {card.icon}
+                  </span>
+                  <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter opacity-40">
+                    Live
+                  </span>
+                </div>
+                <p className="text-3xl font-black text-on-surface tracking-tighter">
+                  {card.value}
+                </p>
+                <p className="text-sm font-semibold text-on-surface-variant mt-1">{card.label}</p>
               </div>
-              <p className="text-3xl font-black text-on-surface tracking-tighter">
-                {loading ? "—" : card.value}
-              </p>
-              <p className="text-sm font-semibold text-on-surface-variant mt-1">{card.label}</p>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
 
@@ -104,7 +115,15 @@ export default function DashboardPage() {
           Strategic Control
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {quickActions.map((action) => (
+          {loading ? (
+            <>
+              <SkeletonActionCard />
+              <SkeletonActionCard />
+              <SkeletonActionCard />
+              <SkeletonActionCard />
+            </>
+          ) : (
+            quickActions.map((action) => (
             <Link key={action.href} href={action.href}>
               <div
                 className={`group relative overflow-hidden p-8 rounded-xl cursor-pointer transition-colors duration-300 ${
@@ -143,7 +162,8 @@ export default function DashboardPage() {
                 )}
               </div>
             </Link>
-          ))}
+          ))
+          )}
         </div>
       </section>
 
@@ -161,7 +181,14 @@ export default function DashboardPage() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {loading ? <div className="h-24 animate-pulse bg-surface-container-highest rounded-lg w-full" /> : metrics?.progress?.map((p: any) => (
+            {loading ? (
+              <>
+                <SkeletonProgressBar />
+                <SkeletonProgressBar />
+                <SkeletonProgressBar />
+                <SkeletonProgressBar />
+              </>
+            ) : metrics?.progress?.map((p: any) => (
               <div key={p.classSectionId}>
                 <div className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2 flex justify-between">
                   <span>{p.name}</span>
@@ -187,7 +214,11 @@ export default function DashboardPage() {
              <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse" />
           </h3>
           <div className="space-y-4 max-h-[250px] overflow-y-auto pr-2">
-            {loading ? <p className="text-xs text-on-surface-variant animate-pulse">Loading logs...</p> : metrics?.auditFeed?.map((log: any) => (
+            {loading ? (
+              <>
+                <SkeletonList count={4} />
+              </>
+            ) : metrics?.auditFeed?.map((log: any) => (
               <div 
                 key={log.id} 
                 className="flex gap-3 p-2 hover:bg-surface-container-high rounded cursor-pointer transition-colors"
@@ -215,7 +246,7 @@ export default function DashboardPage() {
         <div className="flex-1 bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/10">
           <h3 className="text-sm font-bold text-on-surface mb-6">Faculty Workload Distribution</h3>
           <div className="h-64">
-             {loading ? <div className="w-full h-full animate-pulse bg-surface-container-low rounded-lg" /> : (
+             {loading ? <SkeletonChart className="w-full h-full" /> : (
                 <div style={{ width: '100%', height: '256px' }}>
                   <ResponsiveContainer width="100%" height="100%" minWidth={400} minHeight={250}>
                     <BarChart data={metrics?.workload || []} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
@@ -244,7 +275,7 @@ export default function DashboardPage() {
         <div className="flex-1 bg-surface-container-lowest rounded-xl p-8 border border-outline-variant/10 flex flex-col relative">
           <h3 className="text-sm font-bold text-on-surface mb-6">Room Utilization Matrix</h3>
           <div className="w-full relative flex-1 flex flex-col">
-             {loading ? <div className="w-full h-full animate-pulse bg-surface-container-low rounded-lg" /> : (
+             {loading ? <SkeletonChart className="w-full h-full" /> : (
                 <div className="grid grid-cols-7 gap-1 h-full">
                   <div className="text-[9px] font-bold text-on-surface-variant text-center p-2"></div>
                   {[1,2,3,4,5,6].map(s => <div key={s} className="text-[10px] font-bold text-on-surface-variant text-center py-2">S {s}</div>)}

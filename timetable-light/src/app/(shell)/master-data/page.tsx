@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { teacherApi, subjectApi, roomApi, labApi, classApi } from "@/lib/api";
 import { useAcademicYear } from "@/contexts/academic-year-context";
 import type { Teacher, Subject, Room, Lab, ClassSection } from "@/lib/types";
+import { SkeletonTable } from "@/components/skeleton";
 
 type Tab = "teachers" | "subjects" | "rooms" | "labs" | "classes";
 
@@ -231,7 +232,7 @@ export default function MasterDataPage() {
             </thead>
             <tbody className="divide-y divide-outline-variant/5">
               {loading ? (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-on-surface-variant">Loading...</td></tr>
+                <tr><td colSpan={6} className="px-6 py-12"><SkeletonTable rows={6} columns={tab === "subjects" || tab === "teachers" ? 6 : 3} /></td></tr>
               ) : (
                 <>
                   {tab === "teachers" && teachers.map((t) => (
