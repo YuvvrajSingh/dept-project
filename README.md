@@ -8,6 +8,8 @@
 
 A full-stack timetable platform for department operations. It combines an admin scheduling cockpit, teacher portal, and public timetable viewer with a conflict-aware backend and auto-scheduler.
 
+https://github.com/user-attachments/assets/6a69828b-ae3f-46e6-8eca-204f4827cd4f
+
 ## Why this project exists
 
 Academic timetable planning breaks down fast when data is fragmented and conflict checks are manual. This project centralizes timetable operations into one system:
