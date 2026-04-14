@@ -65,11 +65,11 @@ export const timetableController = {
   async exportTimetablePdf(req: Request, res: Response, next: NextFunction) {
     try {
       const classSectionId = Number(req.params.classSectionId);
-      const pdfBuffer = await pdfService.generateTimetablePdf(classSectionId);
+      const { buffer, fileName } = await pdfService.generateTimetablePdf(classSectionId);
 
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="timetable-${classSectionId}.pdf"`);
-      res.status(200).send(pdfBuffer);
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.status(200).send(buffer);
     } catch (error) {
       next(error);
     }

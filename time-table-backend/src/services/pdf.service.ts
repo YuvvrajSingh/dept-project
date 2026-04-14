@@ -3,8 +3,22 @@ import { prisma } from '../prisma/client';
 import { timetableService } from './timetable.service';
 import { AppError } from '../utils/AppError';
 
+type TimetablePdfResult = {
+  buffer: Buffer;
+  fileName: string;
+};
+
+function fileToken(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 export const pdfService = {
-  async generateTimetablePdf(classSectionId: number): Promise<Buffer> {
+  async generateTimetablePdf(classSectionId: number): Promise<TimetablePdfResult> {
     // 1. Fetch data
     const data = await timetableService.getClassTimetable(classSectionId);
     
@@ -29,6 +43,13 @@ export const pdfService = {
       const sub = cs.subject;
       subjectAbbreviationByCode.set(sub.code, sub.abbreviation || sub.code);
     }
+
+    const academicYearLabel = data.academicYear || "unknown-year";
+    const branchLabel = data.branch || "unknown-branch";
+    const semesterValue = data.semester ?? "unknown";
+    const ayForFile = fileToken(academicYearLabel).replace(/^20(\d{2})-20(\d{2})$/, "$1-$2");
+    const dateForFile = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const fileName = `Timetable_${fileToken(branchLabel).toUpperCase()}_Sem${semesterValue}_AY${ayForFile}_${dateForFile}.pdf`;
 
     // 2. Build Dynamic Rows for Timetable Group
     let dynamicRows = '';
@@ -166,7 +187,7 @@ export const pdfService = {
         <div class="header">
           <!-- Logo Placeholder -->
           <h1>MBM UNIVERSITY, JODHPUR</h1>
-          <h2>TIME TABLE 2025-26</h2>
+          <h2>TIME TABLE ${academicYearLabel}</h2>
         </div>
 
         <div class="meta">
@@ -231,7 +252,10 @@ export const pdfService = {
       });
 
       await browser.close();
-      return Buffer.from(pdfBuffer);
+      return {
+        buffer: Buffer.from(pdfBuffer),
+        fileName,
+      };
     } catch (error) {
       console.error("PDF Generation error:", error);
       throw new AppError("Failed to generate PDF", 500, "INTERNAL_ERROR");
