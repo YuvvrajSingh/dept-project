@@ -20,6 +20,7 @@ function PublicTimetableInner() {
   const [semester, setSemester] = useState<number | null>(initialSemester ? Number(initialSemester) : null);
 
   const [matrix, setMatrix] = useState<TimetableMatrix | null>(null);
+  const [cancellations, setCancellations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [matrixLoading, setMatrixLoading] = useState(false);
 
@@ -75,10 +76,15 @@ function PublicTimetableInner() {
   async function loadClassView(classId: number) {
     setMatrixLoading(true);
     try {
-      const m = await publicApi.getMatrix(classId);
+      const [m, cancels] = await Promise.all([
+        publicApi.getMatrix(classId),
+        publicApi.getTodayCancellations(classId).catch(() => [])
+      ]);
       setMatrix(m);
+      setCancellations(cancels || []);
     } catch {
       setMatrix(null);
+      setCancellations([]);
     } finally {
       setMatrixLoading(false);
     }
@@ -89,27 +95,35 @@ function PublicTimetableInner() {
   function renderSlotCell(slotData: SlotData) {
     if (!slotData) return <div className="bg-surface-container-lowest m-0.5 p-1.5 md:p-3 rounded opacity-20 slot-cell" />;
     if (slotData.type === "LAB_CONTINUATION") return null;
+
+    const isCancelled = cancellations.some(c => c.timetableEntryId === slotData.entryId);
+
     if (slotData.type === "THEORY") {
       return (
-        <div className="bg-surface-container-lowest m-0.5 p-1.5 md:p-3 rounded shadow-sm border-l-4 border-indigo-600 slot-cell">
-          <div className="text-[8px] md:text-[10px] font-bold text-indigo-600 mb-1">THEORY</div>
-          <div className="text-[11px] md:text-sm font-bold text-on-surface leading-tight">
-            {subjectById[slotData.subjectId]?.abbreviation ?? slotData.subjectCode}
+        <div className={`m-0.5 p-1.5 md:p-3 rounded shadow-sm border-l-4 slot-cell transition-all ${isCancelled ? "bg-surface-container-lowest/40 border-outline-variant/30 opacity-60 grayscale" : "bg-surface-container-lowest border-indigo-600"}`}>
+          <div className={`text-[8px] md:text-[10px] font-bold mb-1 ${isCancelled ? "text-error" : "text-indigo-600"}`}>
+            {isCancelled ? "CANCELLED" : "THEORY"}
           </div>
-          <div className="mt-1 md:mt-2 text-[8px] md:text-[10px] text-on-surface-variant">{slotData.teacherAbbr} // {slotData.roomName}</div>
+          <div className="text-[11px] md:text-sm font-bold text-on-surface leading-tight">
+            {isCancelled ? <del>{subjectById[slotData.subjectId]?.abbreviation ?? slotData.subjectCode}</del> : (subjectById[slotData.subjectId]?.abbreviation ?? slotData.subjectCode)}
+          </div>
+          <div className="mt-1 md:mt-2 text-[8px] md:text-[10px] text-on-surface-variant line-clamp-1">{slotData.teacherAbbr} // {slotData.roomName}</div>
         </div>
       );
     }
     if (slotData.type === "LAB") {
       return (
-        <div className="lab-merged-cell m-0.5 p-1.5 md:p-3 rounded shadow-sm border-l-4 border-tertiary-container bg-surface-container-lowest">
-          <div className="text-[8px] md:text-[10px] font-bold text-on-tertiary-container mb-1 uppercase tracking-tighter">LAB</div>
-          <div className="text-[11px] md:text-sm font-bold text-on-surface leading-tight">LABS</div>
+        <div className={`lab-merged-cell m-0.5 p-1.5 md:p-3 rounded shadow-sm border-l-4 transition-all ${isCancelled ? "bg-surface-container-lowest/40 border-outline-variant/30 opacity-60 grayscale" : "bg-surface-container-lowest border-tertiary-container"}`}>
+          <div className={`text-[8px] md:text-[10px] font-bold mb-1 uppercase tracking-tighter ${isCancelled ? "text-error" : "text-on-tertiary-container"}`}>
+            {isCancelled ? "CANCELLED" : "LAB"}
+          </div>
+          <div className="text-[11px] md:text-sm font-bold text-on-surface leading-tight">
+            {isCancelled ? <del>LABS</del> : "LABS"}
+          </div>
           <div className="mt-2 space-y-1">
             {Object.entries(slotData.groups).map(([g, info]) => (
-              <div key={g} className="text-[9px] bg-surface-container-low p-1 rounded font-bold">
+              <div key={g} className="text-[9px] bg-surface-container-low p-1 rounded font-bold whitespace-nowrap overflow-hidden text-ellipsis">
                 {g}: {info.teacher} @ {info.lab}
-                {info.subjectId ? ` [${subjectById[info.subjectId]?.abbreviation ?? info.subjectCode}]` : ""}
               </div>
             ))}
           </div>
@@ -162,7 +176,36 @@ function PublicTimetableInner() {
         {matrixLoading ? (
             <div className="py-20 text-center text-sm font-bold text-on-surface-variant animate-pulse">Loading Matrix...</div>
         ) : matrix ? (
-            <div className="bg-surface-container-highest rounded-xl shadow-sm border border-outline-variant/10">
+            <>
+              {cancellations.length > 0 && (
+                <div className="bg-error-container/10 border-l-[6px] border-error rounded-xl p-4 md:p-5 mb-8 shadow-sm">
+                  <div className="flex items-center gap-2.5 text-error mb-4">
+                    <span className="material-symbols-outlined text-2xl">priority_high</span>
+                    <h3 className="font-black tracking-tight text-lg md:text-xl">Classes Cancelled Today</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {cancellations.map(c => (
+                      <div key={c.timetableEntryId} className="bg-surface-container-lowest border border-error/20 p-3.5 rounded-lg flex flex-col sm:flex-row sm:items-center gap-3 shadow-sm">
+                        <div className="flex items-center gap-3 flex-1">
+                          <span className="min-w-[32px] h-[32px] rounded-full bg-error/10 text-error flex items-center justify-center font-black text-sm">
+                            {c.slotOrder}
+                          </span>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-on-surface text-sm">{c.subjectLabel}</span>
+                            <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">SLOT {c.slotOrder}</span>
+                          </div>
+                        </div>
+                        {c.reason && (
+                          <div className="bg-error-container/30 text-on-error-container text-xs font-bold px-3 py-1.5 rounded-md border border-error/10 italic self-start sm:self-auto">
+                            &quot;{c.reason}&quot;
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="bg-surface-container-highest rounded-xl shadow-sm border border-outline-variant/10">
               <div className="overflow-x-auto">
                 <div className="min-w-200">
                 <div className="grid grid-cols-[56px_repeat(6,1fr)] md:grid-cols-[80px_repeat(6,1fr)] bg-surface-container-low border-b border-outline-variant/10">
@@ -226,6 +269,7 @@ function PublicTimetableInner() {
                 </div>
               </div>
             </div>
+            </>
         ) : (
              <div className="flex flex-col items-center justify-center py-32 border-2 border-dashed border-outline-variant/20 rounded-xl">
                  <span className="material-symbols-outlined text-5xl text-outline-variant/30 mb-4">grid_view</span>

@@ -1,8 +1,9 @@
-import { Prisma, PrismaClient, TimetableEntryType, AcademicYearStatus, NotificationLogType } from "@prisma/client";
+import { Prisma, PrismaClient, TimetableEntryType, AcademicYearStatus, NotificationLogType, Role } from "@prisma/client";
 import { prisma } from "../prisma/client";
 import { AppError } from "../utils/AppError";
 import { buildMatrix } from "../utils/timetableMatrix";
 import { DAY_LABELS, LAB_GROUPS } from "../utils/timetableConstants";
+import { institutionTodayDateOnly, institutionTodayDayOfWeek, isSlotStarted, nowInInstitutionTz } from "../utils/timezone";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -634,7 +635,18 @@ export const timetableService = {
       ],
     });
 
-    return { teacher, theoryEntries, labEntries };
+    const entryIds = [
+      ...theoryEntries.map((e) => e.id),
+      ...labEntries.map((e) => e.timetableEntryId),
+    ];
+    const cancellations = await prisma.entryCancellation.findMany({
+      where: {
+        timetableEntryId: { in: entryIds },
+        cancelDate: institutionTodayDateOnly(),
+      },
+    });
+
+    return { teacher, theoryEntries, labEntries, cancellations };
   },
 
   async getRoomOccupancy(roomId: number, academicYearId?: number) {
@@ -678,4 +690,145 @@ export const timetableService = {
       return { success: true, message: "Factory reset complete" };
     });
   },
+
+  async cancelToday(id: number, reason: string | undefined, user: { id: number; role: Role; teacherId: number | null }) {
+    const entry = await prisma.timetableEntry.findUnique({
+      where: { id },
+      include: {
+         slot: true,
+         teacher: true,
+         classSection: { include: { branch: true } },
+         subject: true,
+         labGroups: { include: { teacher: true, subject: true } }
+      }
+    });
+
+    if (!entry) throw new AppError("Entry not found", 404, "NOT_FOUND");
+    
+    // Auth Check
+    if (user.role === "TEACHER") {
+      const isOwner = entry.teacherId === user.teacherId || entry.labGroups.some(lg => lg.teacherId === user.teacherId);
+      if (!isOwner) throw new AppError("You can only cancel your own classes.", 403, "FORBIDDEN");
+    }
+
+    const todayDay = institutionTodayDayOfWeek(); // 1=Mon, ..., 6=Sat
+    if (entry.day !== todayDay) {
+      throw new AppError("This class is not scheduled for today.", 400, "VALIDATION_ERROR");
+    }
+
+    const now = nowInInstitutionTz();
+    if (isSlotStarted(entry.slot.startTime, now)) {
+      throw new AppError("This slot has already begun.", 400, "VALIDATION_ERROR");
+    }
+
+    const cancelDate = institutionTodayDateOnly();
+
+    // Idempotency: try to find existing
+    const existing = await prisma.entryCancellation.findUnique({
+      where: { timetableEntryId_cancelDate: { timetableEntryId: id, cancelDate } }
+    });
+    if (existing) return existing;
+
+    const cancellation = await prisma.entryCancellation.create({
+      data: {
+        timetableEntryId: id,
+        cancelDate,
+        reason,
+        cancelledByAdminId: user.role === "ADMIN" ? user.id : null,
+        cancelledByTeacherId: user.role === "TEACHER" ? user.teacherId : null,
+      }
+    });
+
+    const meta = getLogMetadata(entry);
+    await logActivity({
+      db: prisma,
+      type: NotificationLogType.ENTRY_CANCELLED,
+      timetableEntryId: entry.id,
+      performedBy: user.role === "ADMIN" ? "Admin" : "Teacher",
+      message: `Cancelled Today: ${meta.subjectName} for ${meta.className} on Day ${meta.day} Slot ${meta.slotOrder}`,
+      metadata: {
+        ...meta,
+        cancelDate,
+        reason,
+        actorId: user.id,
+        actorRole: user.role
+      }
+    });
+
+    return cancellation;
+  },
+
+  async undoCancelToday(id: number, user: { id: number; role: Role; teacherId: number | null }) {
+    const entry = await prisma.timetableEntry.findUnique({
+      where: { id },
+      include: {
+         slot: true,
+         teacher: true,
+         classSection: { include: { branch: true } },
+         subject: true,
+         labGroups: { include: { teacher: true, subject: true } }
+      }
+    });
+    if (!entry) throw new AppError("Entry not found", 404, "NOT_FOUND");
+
+    if (user.role === "TEACHER") {
+      const isOwner = entry.teacherId === user.teacherId || entry.labGroups.some(lg => lg.teacherId === user.teacherId);
+      if (!isOwner) throw new AppError("You can only manage your own classes.", 403, "FORBIDDEN");
+    }
+
+    const cancelDate = institutionTodayDateOnly();
+    const existing = await prisma.entryCancellation.findUnique({
+      where: { timetableEntryId_cancelDate: { timetableEntryId: id, cancelDate } }
+    });
+
+    if (!existing) return { success: true, message: "No cancellation found for today" };
+
+    await prisma.entryCancellation.delete({
+      where: { id: existing.id }
+    });
+
+    const meta = getLogMetadata(entry);
+    await logActivity({
+      db: prisma,
+      type: NotificationLogType.ENTRY_CANCELLATION_UNDONE,
+      timetableEntryId: entry.id,
+      performedBy: user.role === "ADMIN" ? "Admin" : "Teacher",
+      message: `Cancellation Undone: ${meta.subjectName} for ${meta.className} on Day ${meta.day} Slot ${meta.slotOrder}`,
+      metadata: {
+        ...meta,
+        cancelDate,
+        actorId: user.id,
+        actorRole: user.role
+      }
+    });
+
+    return { success: true };
+  },
+
+  async getTodayCancellations(classSectionId: number) {
+    const cancelDate = institutionTodayDateOnly();
+    const cancellations = await prisma.entryCancellation.findMany({
+      where: {
+        cancelDate,
+        timetableEntry: { classSectionId }
+      },
+      include: {
+        timetableEntry: {
+          include: { subject: true, slot: true, labGroups: { include: { subject: true } } }
+        }
+      }
+    });
+
+    return cancellations.map(c => {
+      const e = c.timetableEntry;
+      return {
+        timetableEntryId: e.id,
+        day: e.day,
+        slotOrder: e.slot.order,
+        subjectLabel: e.subject?.abbreviation || e.subject?.name || e.labGroups?.[0]?.subject?.abbreviation || "Unknown",
+        reason: c.reason,
+        cancelledAt: c.createdAt
+      };
+    });
+  }
 };

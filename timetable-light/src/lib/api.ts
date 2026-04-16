@@ -205,6 +205,16 @@ export const timetableApi = {
     const url = qs ? `/api/timetable/occupancy?${qs}` : "/api/timetable/occupancy";
     return request<{ teachers: Record<number, Record<number, number[]>>; rooms: Record<number, Record<number, number[]>>; labs: Record<number, Record<number, number[]>> }>(url);
   },
+  cancelToday: (id: number, reason?: string) =>
+    request<{ id: number; timetableEntryId: number; cancelDate: string; reason: string | null }>(
+      `/api/timetable/entry/${id}/cancel-today`,
+      { method: "POST", body: JSON.stringify({ reason }) }
+    ),
+  undoCancelToday: (id: number) =>
+    request<{ success: boolean; message?: string }>(
+      `/api/timetable/entry/${id}/undo-cancel-today`,
+      { method: "POST" }
+    ),
 };
 
 // ── Dashboard ──
@@ -224,4 +234,8 @@ export const publicApi = {
   },
   getMatrix: (classSectionId: number) =>
     request<TimetableMatrix>(`/api/public/timetable/${classSectionId}`),
+  getTodayCancellations: (classSectionId: number) =>
+    request<Array<{ timetableEntryId: number; day: number; slotOrder: number; subjectLabel: string; reason: string | null; cancelledAt: string }>>(
+      `/api/public/cancellations/today?classSectionId=${classSectionId}`
+    ),
 };

@@ -33,14 +33,20 @@ const getUniqueSubjects = (cellEntries: any[]) => {
   return Array.from(unique.values());
 };
 
-function CellCard({ u }: { u: any }) {
+function CellCard({ u, onCancel, onRestore }: { u: any; onCancel: (u: any) => void; onRestore: (u: any) => void }) {
   const isLab = u.entryType === "LAB";
-  const wrapperClasses = isLab 
-    ? "border-l-[4px] border-l-tertiary-container bg-surface-container-lowest border border-outline-variant/10 shadow-sm"
-    : "border-l-[4px] border-l-indigo-600 bg-surface-container-lowest border border-outline-variant/10 shadow-sm";
-  const badgeClasses = isLab
-    ? "bg-tertiary-container/30 text-on-tertiary-container"
-    : "bg-indigo-600/20 text-indigo-700";
+  const isCancelled = u.isCancelled;
+
+  const wrapperClasses = isCancelled
+    ? "border-l-[4px] border-l-outline-variant bg-surface-container-lowest border border-outline-variant/30 shadow-sm opacity-60 grayscale"
+    : isLab 
+      ? "border-l-[4px] border-l-tertiary-container bg-surface-container-lowest border border-outline-variant/10 shadow-sm"
+      : "border-l-[4px] border-l-indigo-600 bg-surface-container-lowest border border-outline-variant/10 shadow-sm";
+  const badgeClasses = isCancelled
+    ? "bg-outline-variant/20 text-on-surface-variant"
+    : isLab
+      ? "bg-tertiary-container/30 text-on-tertiary-container"
+      : "bg-indigo-600/20 text-indigo-700";
 
   return (
     <div className={`flex flex-col flex-1 p-2 rounded ${wrapperClasses}`}>
@@ -59,19 +65,40 @@ function CellCard({ u }: { u: any }) {
             </span>
           )}
         </div>
+        {u.day === new Date().getDay() && (
+          isCancelled ? (
+            <button 
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onRestore(u); }}
+              title="Undo Cancellation"
+              className="text-[10px] bg-primary/10 hover:bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold cursor-pointer transition-colors border border-primary/20 ml-2"
+            >
+              Restore
+            </button>
+          ) : (
+            <button 
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onCancel(u); }}
+              title="Cancel Today's Class"
+              className="text-[10px] bg-error/10 hover:bg-error/20 text-error px-1.5 py-0.5 rounded font-bold cursor-pointer transition-colors border border-error/20 ml-2"
+            >
+              Cancel
+            </button>
+          )
+        )}
       </div>
       <p className="text-xs font-bold leading-tight text-on-surface mb-2">
-        {u.subject?.code} {u.subject?.name ? `— ${u.subject.name}` : ""}
+        {isCancelled ? <del>{u.subject?.code} {u.subject?.name ? `— ${u.subject.name}` : ""}</del> : <>{u.subject?.code} {u.subject?.name ? `— ${u.subject.name}` : ""}</>}
       </p>
       <div className="mt-auto flex flex-col gap-1">
         <div className="flex items-center gap-1 text-[10px] font-semibold text-on-surface-variant flex-wrap">
           <span className="material-symbols-outlined text-[12px] opacity-70">groups</span>
-          <span>{Array.from(u.classes).join(", ")}</span>
+          <span>Sem: {Array.from(u.classes).join(", ")}</span>
         </div>
         {u.room?.name && (
           <div className="flex items-center gap-1 text-[10px] font-semibold text-on-surface-variant flex-wrap">
             <span className="material-symbols-outlined text-[12px] opacity-70">location_on</span>
-            <span>{u.room.name}</span>
+            <span>Room: {u.room.name}</span>
           </div>
         )}
       </div>
@@ -79,7 +106,7 @@ function CellCard({ u }: { u: any }) {
   );
 }
 
-function SlotRow({ slot, daysArray, grid, skipSlots }: { slot: number, daysArray: number[], grid: any, skipSlots: Set<string> }) {
+function SlotRow({ slot, daysArray, grid, skipSlots, onCancel, onRestore }: { slot: number, daysArray: number[], grid: any, skipSlots: Set<string>, onCancel: (u: any) => void, onRestore: (u: any) => void }) {
   return (
     <Fragment key={`slotGroup-${slot}`}>
       {/* Slot Header */}
@@ -116,7 +143,7 @@ function SlotRow({ slot, daysArray, grid, skipSlots }: { slot: number, daysArray
           >
             <div className="flex flex-col gap-1.5 h-full">
               {uniqueSubjects.map((u: any, i: number) => (
-                <CellCard key={i} u={u} />
+                <CellCard key={i} u={u} onCancel={onCancel} onRestore={onRestore} />
               ))}
             </div>
           </div>
@@ -132,45 +159,113 @@ export default function TeacherPortalTimetablePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [cancelModal, setCancelModal] = useState<{ isOpen: boolean; entry: any | null; reason: string; submitting: boolean }>({
+    isOpen: false, entry: null, reason: "", submitting: false
+  });
+  
+  const [toast, setToast] = useState<{ visible: boolean; timeLeft: number; entryId: number | null }>({
+    visible: false, timeLeft: 0, entryId: null
+  });
+
+  const loadData = async (active = true) => {
+    try {
+      const me = await teacherMeApi.get();
+      const schedule = await timetableApi.getTeacherSchedule(me.id);
+
+      const cancels = schedule.cancellations || [];
+      const cancelSet = new Set(cancels.map((c: any) => c.timetableEntryId));
+
+      // Map lab entries to the common TimetableEntry shape
+      const mappedLabs = schedule.labEntries.map((l: any) => ({
+        id: l.id + 100000,
+        timetableEntryId: l.timetableEntry.id,
+        day: l.timetableEntry.day,
+        slot: l.timetableEntry.slot,
+        slotId: l.timetableEntry.slotId,
+        entryType: "LAB" as const,
+        subject: l.subject ?? l.timetableEntry.subject,
+        room: l.lab,
+        teacher: schedule.teacher,
+        classSection: l.timetableEntry.classSection,
+        groupName: l.groupName,
+        isCancelled: cancelSet.has(l.timetableEntry.id),
+      }));
+
+      const allEntries = [...schedule.theoryEntries.map((t: any) => ({ ...t, isCancelled: cancelSet.has(t.id) })), ...mappedLabs].sort((a, b) => {
+        if (a.day === b.day) return a.slot.order - b.slot.order;
+        return a.day - b.day;
+      });
+
+      if (active) {
+        setTeacher(me);
+        setEntries(allEntries as unknown as TimetableEntry[]);
+      }
+    } catch (err: unknown) {
+      if (active) setError(err instanceof Error ? err.message : "Failed to load schedule.");
+    } finally {
+      if (active) setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let active = true;
-    async function load() {
-      try {
-        const me = await teacherMeApi.get();
-        const schedule = await timetableApi.getTeacherSchedule(me.id);
-
-        // Map lab entries to the common TimetableEntry shape
-        const mappedLabs = schedule.labEntries.map((l: any) => ({
-          id: l.id + 100000,
-          day: l.timetableEntry.day,
-          slot: l.timetableEntry.slot,
-          slotId: l.timetableEntry.slotId,
-          entryType: "LAB" as const,
-          subject: l.subject ?? l.timetableEntry.subject,
-          room: l.lab,
-          teacher: schedule.teacher,
-          classSection: l.timetableEntry.classSection,
-          groupName: l.groupName,
-        }));
-
-        const allEntries = [...schedule.theoryEntries, ...mappedLabs].sort((a, b) => {
-          if (a.day === b.day) return a.slot.order - b.slot.order;
-          return a.day - b.day;
-        });
-
-        if (active) {
-          setTeacher(me);
-          setEntries(allEntries as unknown as TimetableEntry[]);
-        }
-      } catch (err: unknown) {
-        if (active) setError(err instanceof Error ? err.message : "Failed to load schedule.");
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-    load();
+    loadData(active);
     return () => { active = false; };
   }, []);
+
+  const handleCancelClick = (entry: any) => {
+    setCancelModal({ isOpen: true, entry, reason: "", submitting: false });
+  };
+
+  const confirmCancel = async () => {
+    const entryId = cancelModal.entry?.timetableEntryId ?? cancelModal.entry?.id;
+    if (!entryId) return;
+
+    setCancelModal(prev => ({ ...prev, submitting: true }));
+    try {
+      await timetableApi.cancelToday(entryId, cancelModal.reason || undefined);
+      setCancelModal({ isOpen: false, entry: null, reason: "", submitting: false });
+      setToast({ visible: true, timeLeft: 30, entryId });
+      // We don't necessarily need to reload data if the UI doesn't visually hide cancelled classes locally yet, 
+      // but in the public UI we do. Wait, in teacher portal we don't visualize cancelled logic? 
+      // Actually we should reload or handle optimistic.
+      loadData(true);
+    } catch (err: any) {
+      alert(err.message || "Failed to cancel class.");
+      setCancelModal(prev => ({ ...prev, submitting: false }));
+    }
+  };
+
+  const undoCancel = async () => {
+    if (!toast.entryId) return;
+    try {
+      await timetableApi.undoCancelToday(toast.entryId);
+      setToast({ visible: false, timeLeft: 0, entryId: null });
+      loadData(true);
+    } catch (err: any) {
+      alert(err.message || "Failed to undo cancellation.");
+    }
+  };
+
+  const handleRestoreClick = async (entry: any) => {
+    const entryId = entry?.timetableEntryId ?? entry?.id;
+    if (!entryId) return;
+    try {
+      await timetableApi.undoCancelToday(entryId);
+      loadData(true);
+    } catch (err: any) {
+      alert(err.message || "Failed to restore class.");
+    }
+  };
+
+  useEffect(() => {
+    if (toast.visible && toast.timeLeft > 0) {
+      const timer = setTimeout(() => setToast(prev => ({ ...prev, timeLeft: prev.timeLeft - 1 })), 1000);
+      return () => clearTimeout(timer);
+    } else if (toast.visible && toast.timeLeft <= 0) {
+      setToast(prev => ({ ...prev, visible: false, entryId: null }));
+    }
+  }, [toast]);
 
   const daysArray = [1, 2, 3, 4, 5, 6];
   const slotArray = [1, 2, 3, 4, 5, 6];
@@ -265,7 +360,7 @@ export default function TeacherPortalTimetablePage() {
             <div className="timetable-grid" style={{ gridTemplateColumns: '90px repeat(6, 1fr)' }}>
               {/* Morning Slots (1-3) */}
               {[1, 2, 3].map(slot => (
-                <SlotRow key={slot} slot={slot} daysArray={daysArray} grid={grid} skipSlots={skipSlots} />
+                <SlotRow key={slot} slot={slot} daysArray={daysArray} grid={grid} skipSlots={skipSlots} onCancel={handleCancelClick} onRestore={handleRestoreClick} />
               ))}
 
               {/* Lunch Break Row */}
@@ -277,7 +372,7 @@ export default function TeacherPortalTimetablePage() {
 
               {/* Afternoon Slots (4-6) */}
               {[4, 5, 6].map(slot => (
-                <SlotRow key={slot} slot={slot} daysArray={daysArray} grid={grid} skipSlots={skipSlots} />
+                <SlotRow key={slot} slot={slot} daysArray={daysArray} grid={grid} skipSlots={skipSlots} onCancel={handleCancelClick} onRestore={handleRestoreClick} />
               ))}
             </div>
           </div>
@@ -294,6 +389,73 @@ export default function TeacherPortalTimetablePage() {
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-sm bg-tertiary-container border border-tertiary" />
             Lab (2-slot block)
+          </div>
+        </div>
+      )}
+      {/* Undo Toast */}
+      {toast.visible && (
+        <div className="fixed bottom-6 right-6 bg-surface-container-highest border border-outline-variant/30 shadow-lg rounded-xl p-4 flex flex-col gap-2 z-50 min-w-[280px]">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm font-bold text-on-surface">Class Cancelled</span>
+            <span className="text-xs font-medium text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded shadow-inner border border-outline-variant/10">
+              {toast.timeLeft}s
+            </span>
+          </div>
+          <button
+            onClick={undoCancel}
+            className="w-full py-1.5 bg-primary text-on-primary rounded font-bold text-xs hover:opacity-90 active:scale-[0.98] transition-all border border-primary/20"
+          >
+            UNDO CANCELLATION
+          </button>
+        </div>
+      )}
+
+      {/* Cancel Modal */}
+      {cancelModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-2xl border border-outline-variant/20 overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-outline-variant/10 flex justify-between items-center bg-surface-container-low/50">
+              <h3 className="font-bold text-on-surface">Cancel Class Today</h3>
+              <button 
+                onClick={() => setCancelModal({ ...cancelModal, isOpen: false })}
+                className="material-symbols-outlined text-on-surface-variant hover:text-on-surface transition-colors"
+                title="Close"
+              >
+                close
+              </button>
+            </div>
+            <div className="p-5 flex flex-col gap-4">
+              <p className="text-sm font-medium text-on-surface-variant">
+                Are you sure you want to cancel <strong className="text-on-surface">{cancelModal.entry?.subject?.code}</strong> today?
+              </p>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-on-surface">Reason (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Teacher unwell, Lab unavailable"
+                  className="px-3 py-2 bg-surface-container-highest border border-outline-variant/30 rounded-lg text-sm text-on-surface focus:outline-none focus:border-primary placeholder:text-on-surface-variant/50 transition-colors"
+                  value={cancelModal.reason}
+                  onChange={(e) => setCancelModal({ ...cancelModal, reason: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-outline-variant/10 flex justify-end gap-3 bg-surface-container-low/20">
+              <button
+                onClick={() => setCancelModal({ ...cancelModal, isOpen: false })}
+                className="px-4 py-2 text-sm font-bold text-on-surface-variant hover:bg-surface-container-highest rounded-lg transition-colors border border-transparent"
+                disabled={cancelModal.submitting}
+              >
+                Keep Class
+              </button>
+              <button
+                onClick={confirmCancel}
+                className="px-4 py-2 text-sm font-black bg-error text-on-error hover:bg-error/90 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+                disabled={cancelModal.submitting}
+              >
+                {cancelModal.submitting && <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>}
+                Confirm Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

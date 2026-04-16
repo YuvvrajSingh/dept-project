@@ -125,4 +125,41 @@ export const timetableController = {
       next(error);
     }
   },
+
+  async cancelToday(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = Number(req.params.id);
+      const reason = req.body.reason as string | undefined;
+      // We assume `req.user` is populated by the `authenticate` middleware
+      const user = req.user!;
+      const result = await timetableService.cancelToday(id, reason, user);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async undoCancelToday(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = Number(req.params.id);
+      const user = req.user!;
+      const result = await timetableService.undoCancelToday(id, user);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getTodayCancellations(req: Request, res: Response, next: NextFunction) {
+    try {
+      const classSectionId = Number(req.query.classSectionId);
+      if (!classSectionId) {
+        return res.status(400).json({ error: "Missing classSectionId query parameter" });
+      }
+      const result = await timetableService.getTodayCancellations(classSectionId);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
 };

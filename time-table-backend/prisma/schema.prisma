@@ -30,6 +30,8 @@ enum NotificationLogType {
   ENTRY_CREATED
   ENTRY_UPDATED
   ENTRY_DELETED
+  ENTRY_CANCELLED
+  ENTRY_CANCELLATION_UNDONE
 }
 
 enum Role {
@@ -106,17 +108,17 @@ model ClassSection {
 }
 
 model Subject {
-  id               Int               @id @default(autoincrement())
-  code             String            @unique
+  id               Int              @id @default(autoincrement())
+  code             String           @unique
   name             String
-  abbreviation     String            @default("")
+  abbreviation     String           @default("")
   type             SubjectType
   creditHours      Int
   // Soft delete: set false to archive. Do not hard-delete active subjects —
   // LabGroupEntry and TimetableEntry use Restrict which will block the delete.
-  isActive         Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   teacherSubjects  TeacherSubject[]
   classSubjects    ClassSubject[]
   timetableEntries TimetableEntry[]
@@ -124,33 +126,35 @@ model Subject {
 }
 
 model Teacher {
-  id               Int               @id @default(autoincrement())
-  name             String
-  abbreviation     String            @unique
-  email            String?
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  abbreviation       String              @unique
+  email              String?
   // Soft delete: set false to archive. Hard delete is blocked by Restrict
   // on LabGroupEntry (historical lab data must not lose its teacher reference).
-  isActive         Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  user             User?
-  teacherSubjects  TeacherSubject[]
-  timetableEntries TimetableEntry[]
-  labGroupEntries  LabGroupEntry[]
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  user               User?
+  teacherSubjects    TeacherSubject[]
+  timetableEntries   TimetableEntry[]
+  labGroupEntries    LabGroupEntry[]
+  entryCancellations EntryCancellation[]
 }
 
 // Auth accounts: admins are not teachers; teachers link 1:1 via teacherId.
 // CHECK constraints on role vs teacherId are enforced in SQL migration.
 model User {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
-  passwordHash String
-  role         Role
-  teacherId    Int?     @unique
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  teacher      Teacher? @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  id                 Int                 @id @default(autoincrement())
+  email              String              @unique
+  passwordHash       String
+  role               Role
+  teacherId          Int?                @unique
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  teacher            Teacher?            @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  entryCancellations EntryCancellation[]
 }
 
 // ─── Junction Tables ─────────────────────────────────────────────────────────
@@ -178,25 +182,26 @@ model ClassSubject {
 // ─── Timetable Core ───────────────────────────────────────────────────────────
 
 model TimetableEntry {
-  id             Int                @id @default(autoincrement())
-  classSectionId Int
-  slotId         Int                // FK to Slot — replaces raw slotStart/slotEnd integers
-  day            Int                // 1 = Monday … 6 = Saturday
-  entryType      TimetableEntryType
+  id               Int                 @id @default(autoincrement())
+  classSectionId   Int
+  slotId           Int // FK to Slot — replaces raw slotStart/slotEnd integers
+  day              Int // 1 = Monday … 6 = Saturday
+  entryType        TimetableEntryType
   // subjectId is nullable (LAB entries set it null; lab group subjects live on LabGroupEntry).
   // Restrict means: if a subject IS attached, you cannot delete it — use isActive=false instead.
-  subjectId      Int?
-  teacherId      Int?
-  roomId         Int?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  classSection   ClassSection       @relation(fields: [classSectionId], references: [id], onDelete: Cascade)
-  slot           Slot               @relation(fields: [slotId], references: [id], onDelete: Restrict)
-  subject        Subject?           @relation(fields: [subjectId], references: [id], onDelete: Restrict)
-  teacher        Teacher?           @relation(fields: [teacherId], references: [id], onDelete: SetNull)
-  room           Room?              @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  labGroups      LabGroupEntry[]
+  subjectId        Int?
+  teacherId        Int?
+  roomId           Int?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  classSection     ClassSection        @relation(fields: [classSectionId], references: [id], onDelete: Cascade)
+  slot             Slot                @relation(fields: [slotId], references: [id], onDelete: Restrict)
+  subject          Subject?            @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  teacher          Teacher?            @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  room             Room?               @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  labGroups        LabGroupEntry[]
   notificationLogs NotificationLog[]
+  cancellations    EntryCancellation[]
 
   // A class section cannot have two entries in the same day+slot.
   @@unique([classSectionId, day, slotId])
@@ -208,8 +213,8 @@ model TimetableEntry {
 model LabGroupEntry {
   id               Int            @id @default(autoincrement())
   timetableEntryId Int
-  groupName        String         // "A1", "A2", "A3"
-  subjectId        Int            // Non-nullable: every lab group must have a subject
+  groupName        String // "A1", "A2", "A3"
+  subjectId        Int // Non-nullable: every lab group must have a subject
   labId            Int
   teacherId        Int
   timetableEntry   TimetableEntry @relation(fields: [timetableEntryId], references: [id], onDelete: Cascade)
@@ -220,15 +225,32 @@ model LabGroupEntry {
   teacher          Teacher        @relation(fields: [teacherId], references: [id], onDelete: Restrict)
 }
 
+model EntryCancellation {
+  id                   Int      @id @default(autoincrement())
+  timetableEntryId     Int
+  cancelDate           String // Format: YYYY-MM-DD
+  reason               String?
+  cancelledByTeacherId Int?
+  cancelledByAdminId   Int?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  timetableEntry     TimetableEntry @relation(fields: [timetableEntryId], references: [id], onDelete: Cascade)
+  cancelledByTeacher Teacher?       @relation(fields: [cancelledByTeacherId], references: [id], onDelete: SetNull)
+  cancelledByAdmin   User?          @relation(fields: [cancelledByAdminId], references: [id], onDelete: SetNull)
+
+  @@unique([timetableEntryId, cancelDate])
+}
+
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 model NotificationLog {
   id               Int                 @id @default(autoincrement())
-  timetableEntryId Int?                // Nullable to survive entry deletion
-  performedBy      String?             // "Admin", teacher name, etc.
+  timetableEntryId Int? // Nullable to survive entry deletion
+  performedBy      String? // "Admin", teacher name, etc.
   type             NotificationLogType
-  message          String              // Human-readable description
-  metadata         Json?               // Structured data (subject, teacher, etc.)
+  message          String // Human-readable description
+  metadata         Json? // Structured data (subject, teacher, etc.)
   date             DateTime            @db.Date
   createdAt        DateTime            @default(now())
   timetableEntry   TimetableEntry?     @relation(fields: [timetableEntryId], references: [id], onDelete: SetNull)

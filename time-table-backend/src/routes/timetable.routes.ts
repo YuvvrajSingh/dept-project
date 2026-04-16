@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { timetableController } from "../controllers/timetable.controller";
-import { requireAdmin } from "../middleware/auth.middleware";
+import { requireAdmin, authenticate } from "../middleware/auth.middleware";
 
 const router = Router();
 
@@ -94,6 +94,36 @@ router.delete(
     }
   },
   timetableController.deleteEntry,
+);
+
+router.post(
+  "/entry/:id/cancel-today",
+  authenticate,
+  (req, _res, next) => {
+    try {
+      idSchema.parse({ id: req.params.id });
+      // reason is optional
+      z.object({ reason: z.string().optional() }).parse({ reason: req.body.reason });
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
+  timetableController.cancelToday,
+);
+
+router.post(
+  "/entry/:id/undo-cancel-today",
+  authenticate,
+  (req, _res, next) => {
+    try {
+      idSchema.parse({ id: req.params.id });
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
+  timetableController.undoCancelToday,
 );
 
 router.get(

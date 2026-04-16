@@ -36,4 +36,8 @@ router.get("/timetable/:classSectionId", (req, _res, next) => {
   }
 }, timetableController.getClassTimetable);
 
+// 4. Get today's cancellations for a class
+// e.g., /api/public/cancellations/today?classSectionId=123
+router.get("/cancellations/today", timetableController.getTodayCancellations);
+
 export default router;
