@@ -22,7 +22,7 @@ export const labController = {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await labService.updateLab(id, req.body);
       res.status(200).json(data);
     } catch (error) {
@@ -32,7 +32,7 @@ export const labController = {
 
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       await labService.deleteLab(id);
       res.status(204).send();
     } catch (error) {

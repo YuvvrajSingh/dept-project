@@ -17,7 +17,7 @@ export default function TeacherAccountsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormState>({ teacherId: "", email: "", password: "" });
 
@@ -44,7 +44,7 @@ export default function TeacherAccountsPage() {
 
   // Pre-fill email from selected teacher
   function handleTeacherChange(teacherId: string) {
-    const teacher = teachers.find((t) => t.id === Number(teacherId));
+    const teacher = teachers.find((t) => t.id === teacherId);
     setForm((f) => ({
       ...f,
       teacherId,
@@ -64,7 +64,7 @@ export default function TeacherAccountsPage() {
         email: form.email,
         password: form.password,
         role: "TEACHER",
-        teacherId: Number(form.teacherId),
+        teacherId: form.teacherId,
       });
       setSuccess("Account created successfully.");
       setForm({ teacherId: "", email: "", password: "" });
@@ -76,7 +76,7 @@ export default function TeacherAccountsPage() {
     }
   }
 
-  async function handleDelete(id: number) {
+  async function handleDelete(id: string) {
     if (!confirm("Deactivate this account? The teacher will no longer be able to log in.")) return;
     setDeletingId(id);
     try {

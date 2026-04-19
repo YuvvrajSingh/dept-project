@@ -1,5 +1,8 @@
 # Timetable Management System — Master Specification
 
+> Note: This file contains legacy planning content. The active implementation uses Prisma with MongoDB.
+> For setup/runtime truth, follow `README.md` and `.env.example` in this project.
+
 ## What This Project Is
 
 A REST API backend for managing a university department's weekly timetable.
@@ -13,7 +16,7 @@ This produces 9 independent timetables (one per class section).
 - **Runtime**: Node.js v22+ with TypeScript
 - **Framework**: Express.js
 - **ORM**: Prisma
-- **Database**: PostgreSQL
+- **Database**: MongoDB (via Prisma)
 - **Language**: TypeScript (strict mode)
 
 ---
@@ -107,7 +110,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 

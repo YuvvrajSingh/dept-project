@@ -163,14 +163,14 @@ export default function TeacherPortalTimetablePage() {
     isOpen: false, entry: null, reason: "", submitting: false
   });
   
-  const [toast, setToast] = useState<{ visible: boolean; timeLeft: number; entryId: number | null }>({
+  const [toast, setToast] = useState<{ visible: boolean; timeLeft: number; entryId: string | null }>({
     visible: false, timeLeft: 0, entryId: null
   });
 
   const loadData = async (active = true) => {
     try {
       const me = await teacherMeApi.get();
-      const schedule = await timetableApi.getTeacherSchedule(me.id);
+      const schedule: any = await timetableApi.getTeacherSchedule(me.id);
 
       const cancels = schedule.cancellations || [];
       const cancelSet = new Set(cancels.map((c: any) => c.timetableEntryId));

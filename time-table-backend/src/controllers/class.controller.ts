@@ -4,7 +4,7 @@ import { classService } from "../services/class.service";
 export const classController = {
   async list(req: Request, res: Response, next: NextFunction) {
     try {
-      const academicYearId = (req as any).academicYearId as number | undefined;
+      const academicYearId = (req as any).academicYearId as string | undefined;
       const data = await classService.listClassSections(academicYearId);
       res.status(200).json(data);
     } catch (error) {
@@ -14,7 +14,7 @@ export const classController = {
 
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await classService.getClassSectionById(id);
       res.status(200).json(data);
     } catch (error) {
@@ -33,7 +33,7 @@ export const classController = {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await classService.updateClassSection(id, req.body);
       res.status(200).json(data);
     } catch (error) {
@@ -43,7 +43,7 @@ export const classController = {
 
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       await classService.deleteClassSection(id);
       res.status(204).send();
     } catch (error) {
@@ -53,8 +53,8 @@ export const classController = {
 
   async assignSubject(req: Request, res: Response, next: NextFunction) {
     try {
-      const classSectionId = Number(req.params.id);
-      const { subjectId } = req.body as { subjectId: number };
+      const classSectionId = req.params.id as string;
+      const { subjectId } = req.body as { subjectId: string };
       const data = await classService.assignSubject(classSectionId, subjectId);
       res.status(201).json(data);
     } catch (error) {
@@ -64,8 +64,8 @@ export const classController = {
 
   async removeSubject(req: Request, res: Response, next: NextFunction) {
     try {
-      const classSectionId = Number(req.params.id);
-      const subjectId = Number(req.params.subjectId);
+      const classSectionId = req.params.id as string;
+      const subjectId = req.params.subjectId as string;
       await classService.removeSubject(classSectionId, subjectId);
       res.status(204).send();
     } catch (error) {
@@ -75,7 +75,7 @@ export const classController = {
 
   async getSubjects(req: Request, res: Response, next: NextFunction) {
     try {
-      const classSectionId = Number(req.params.id);
+      const classSectionId = req.params.id as string;
       const data = await classService.getClassSubjects(classSectionId);
       res.status(200).json(data);
     } catch (error) {

@@ -73,7 +73,7 @@ function PublicTimetableInner() {
   }, [branch, semester, classes, loading, router]);
 
 
-  async function loadClassView(classId: number) {
+  async function loadClassView(classId: string) {
     setMatrixLoading(true);
     try {
       const [m, cancels] = await Promise.all([

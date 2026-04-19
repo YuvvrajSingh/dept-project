@@ -7,8 +7,11 @@ import { authApi, teacherMeApi } from "@/lib/api";
 import type { Teacher } from "@/lib/types";
 
 const teacherNavItems = [
-  { href: "/teacher-portal", label: "My Subjects", icon: "menu_book" },
-  { href: "/teacher-portal/timetable", label: "My Timetable", icon: "calendar_view_day" },
+  { href: "/teacher-portal", label: "My Subjects", icon: "menu_book", exact: true },
+  { href: "/teacher-portal/timetable", label: "My Timetable", icon: "calendar_view_day", exact: false },
+  { href: "/teacher-portal/attendance", label: "Attendance", icon: "how_to_reg", exact: false },
+  { href: "/teacher-portal/midterms", label: "Midterms", icon: "grading", exact: true },
+  { href: "/teacher-portal/midterms/results", label: "Results", icon: "leaderboard", exact: false },
 ];
 
 export default function TeacherPortalLayout({ children }: { children: React.ReactNode }) {
@@ -93,7 +96,7 @@ export default function TeacherPortalLayout({ children }: { children: React.Reac
         {/* Navigation tabs */}
         <nav className="flex gap-1">
           {teacherNavItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}

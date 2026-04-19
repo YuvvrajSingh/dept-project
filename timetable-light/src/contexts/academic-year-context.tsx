@@ -36,7 +36,7 @@ export function AcademicYearProvider({ children }: { children: React.ReactNode }
       // Restore from localStorage or default to active year
       const savedYearId = localStorage.getItem(STORAGE_KEY_YEAR);
       if (savedYearId) {
-        const found = years.find((y) => y.id === Number(savedYearId));
+        const found = years.find((y) => y.id === savedYearId);
         if (found) {
           setSelectedYearState(found);
           setLoading(false);

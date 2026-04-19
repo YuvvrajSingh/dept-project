@@ -12,6 +12,7 @@ const ADMIN_ROUTES = [
 ];
 
 const TEACHER_ROUTES = ["/teacher-portal"];
+const STUDENT_ROUTES = ["/student-portal"];
 
 function startsWithAny(pathname: string, prefixes: string[]): boolean {
   return prefixes.some(
@@ -50,14 +51,29 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Teachers must not access admin routes → send them to their portal
+  // Teachers/Students must not access admin routes → send them to their respective portal
   if (role === "TEACHER" && startsWithAny(pathname, ADMIN_ROUTES)) {
     return NextResponse.redirect(new URL("/teacher-portal", request.url));
+  }
+  if (role === "STUDENT" && startsWithAny(pathname, ADMIN_ROUTES)) {
+    return NextResponse.redirect(new URL("/student-portal", request.url));
+  }
+
+  // Admins/Teachers must not access the student portal
+  if ((role === "ADMIN" || role === "TEACHER") && startsWithAny(pathname, STUDENT_ROUTES)) {
+    // Admins go to dashboard, Teachers go to teacher-portal
+    const target = role === "ADMIN" ? "/dashboard" : "/teacher-portal";
+    return NextResponse.redirect(new URL(target, request.url));
   }
 
   // Admins must not access the teacher portal → send them to dashboard
   if (role === "ADMIN" && startsWithAny(pathname, TEACHER_ROUTES)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Students must not access the teacher portal
+  if (role === "STUDENT" && startsWithAny(pathname, TEACHER_ROUTES)) {
+    return NextResponse.redirect(new URL("/student-portal", request.url));
   }
 
   return NextResponse.next();
@@ -79,6 +95,8 @@ export const config = {
     "/assignments/:path*",
     "/teacher-portal",
     "/teacher-portal/:path*",
+    "/student-portal",
+    "/student-portal/:path*",
   ],
 };
 

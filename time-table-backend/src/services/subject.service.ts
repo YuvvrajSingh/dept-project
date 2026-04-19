@@ -1,7 +1,7 @@
 import { prisma } from "../prisma/client";
 import { AppError } from "../utils/AppError";
 
-const assertSubjectExists = async (id: number) => {
+const assertSubjectExists = async (id: string) => {
   const subject = await prisma.subject.findUnique({ where: { id } });
   if (!subject) {
     throw new AppError("Subject not found", 404, "NOT_FOUND");
@@ -16,7 +16,7 @@ export const subjectService = {
     });
   },
 
-  async getSubjectById(id: number) {
+  async getSubjectById(id: string) {
     const subject = await prisma.subject.findUnique({ where: { id } });
     if (!subject) {
       throw new AppError("Subject not found", 404, "NOT_FOUND");
@@ -36,26 +36,26 @@ export const subjectService = {
   },
 
   async updateSubject(
-    id: number,
+    id: string,
     data: Partial<{ code: string; name: string; abbreviation: string; type: "THEORY" | "LAB"; creditHours: number }>,
   ) {
     await assertSubjectExists(id);
     return prisma.subject.update({ where: { id }, data });
   },
 
-  async deleteSubject(id: number) {
+  async deleteSubject(id: string) {
     await assertSubjectExists(id);
     // Hard delete is blocked (Restrict) if subject is referenced in TimetableEntry or LabGroupEntry.
     // Use deactivateSubject for safe archival instead.
     await prisma.subject.delete({ where: { id } });
   },
 
-  async deactivateSubject(id: number) {
+  async deactivateSubject(id: string) {
     await assertSubjectExists(id);
     return prisma.subject.update({ where: { id }, data: { isActive: false } });
   },
 
-  async reactivateSubject(id: number) {
+  async reactivateSubject(id: string) {
     await assertSubjectExists(id);
     return prisma.subject.update({ where: { id }, data: { isActive: true } });
   },

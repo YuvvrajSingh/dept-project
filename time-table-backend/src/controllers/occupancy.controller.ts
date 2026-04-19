@@ -1,25 +1,41 @@
 import { Request, Response } from "express";
 import { prisma } from "../prisma/client";
+import { getParitySemesterList } from "../utils/semesterParity";
 
 export const occupancyController = {
   getMatrix: async (req: Request, res: Response) => {
     try {
-      let excludeId: number | undefined = undefined;
-      if (req.query.excludeClassSectionId && req.query.excludeClassSectionId !== "undefined" && req.query.excludeClassSectionId !== "null") {
-         const parsed = parseInt(req.query.excludeClassSectionId as string, 10);
-         if (!isNaN(parsed)) excludeId = parsed;
+      const excludeClassSectionId = req.query.excludeClassSectionId as string | undefined;
+      const academicYearId = req.query.academicYearId as string | undefined;
+      
+      let semester: number | undefined;
+
+      if (excludeClassSectionId) {
+        const classSection = await prisma.classSection.findUnique({
+          where: { id: excludeClassSectionId },
+          select: { semester: true },
+        });
+        if (classSection) {
+          semester = classSection.semester;
+        }
+      } else if (req.query.semester) {
+        semester = parseInt(req.query.semester as string, 10);
       }
 
-      let academicYearId: number | undefined = undefined;
-      if (req.query.academicYearId && req.query.academicYearId !== "undefined") {
-        const parsed = parseInt(req.query.academicYearId as string, 10);
-        if (!isNaN(parsed)) academicYearId = parsed;
+      if (semester === undefined || isNaN(semester)) {
+        res.status(400).json({ error: "A valid semester query parameter is required when excludeClassSectionId is not provided." });
+        return;
       }
       
       const allEntries = await prisma.timetableEntry.findMany({
         where: {
-          ...(excludeId ? { classSectionId: { not: excludeId } } : {}),
-          ...(academicYearId ? { classSection: { academicYearId } } : {}),
+          ...(excludeClassSectionId ? { classSectionId: { not: excludeClassSectionId } } : {}),
+          classSection: {
+            ...(academicYearId ? { academicYearId } : {}),
+            semester: {
+              in: getParitySemesterList(semester),
+            },
+          },
         },
         include: {
           labGroups: true,
@@ -28,13 +44,13 @@ export const occupancyController = {
       });
 
       // teacherId -> day -> slot[]
-      const teachersObj: Record<number, Record<number, number[]>> = {};
+      const teachersObj: Record<string, Record<number, number[]>> = {};
       // roomId -> day -> slot[]
-      const roomsObj: Record<number, Record<number, number[]>> = {};
+      const roomsObj: Record<string, Record<number, number[]>> = {};
       // labId -> day -> slot[]
-      const labsObj: Record<number, Record<number, number[]>> = {};
+      const labsObj: Record<string, Record<number, number[]>> = {};
 
-      const addBusy = (map: Record<number, Record<number, number[]>>, id: number | null, day: number, slot: number) => {
+      const addBusy = (map: Record<string, Record<number, number[]>>, id: string | null, day: number, slot: number) => {
         if (!id) return;
         if (!map[id]) map[id] = {};
         if (!map[id][day]) map[id][day] = [];

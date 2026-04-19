@@ -1,20 +1,14 @@
-import { Router } from "express";
-import { z } from "zod";
+import { Router, z, requireAdmin, idParamSchema, objectIdSchema } from "./shared";
 import { classController } from "../controllers/class.controller";
-import { requireAdmin } from "../middleware/auth.middleware";
 
 const router = Router();
-
-const idParamSchema = z.object({
-  id: z.coerce.number().int().positive(),
-});
 
 const classCreateSchema = z.object({
   body: z.object({
     branchName: z.string().trim().min(1).toUpperCase(),
     year: z.union([z.literal(2), z.literal(3), z.literal(4)]),
     semester: z.coerce.number().int().min(1).max(8),
-    academicYearId: z.coerce.number().int().positive(),
+    academicYearId: objectIdSchema,
   }),
 });
 
@@ -32,13 +26,13 @@ const classUpdateSchema = z.object({
 
 const assignSubjectSchema = z.object({
   body: z.object({
-    subjectId: z.coerce.number().int().positive(),
+    subjectId: objectIdSchema,
   }),
 });
 
 const subjectParamSchema = z.object({
-  id: z.coerce.number().int().positive(),
-  subjectId: z.coerce.number().int().positive(),
+  id: objectIdSchema,
+  subjectId: objectIdSchema,
 });
 
 const validate = (schema: z.ZodSchema, payload: unknown) => {
@@ -46,13 +40,13 @@ const validate = (schema: z.ZodSchema, payload: unknown) => {
 };
 
 router.get("/", (req, _res, next) => {
-  (req as any).academicYearId = req.query.academicYearId ? Number(req.query.academicYearId) : undefined;
+  (req as any).academicYearId = req.query.academicYearId || undefined;
   next();
 }, classController.list);
 
 router.get("/:id", (req, _res, next) => {
   try {
-    validate(idParamSchema, { id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     next();
   } catch (error) {
     next(error);
@@ -75,7 +69,7 @@ router.post(
 
 router.put("/:id", requireAdmin, (req, _res, next) => {
   try {
-    validate(idParamSchema, { id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     validate(classUpdateSchema, { body: req.body });
     next();
   } catch (error) {
@@ -85,7 +79,7 @@ router.put("/:id", requireAdmin, (req, _res, next) => {
 
 router.delete("/:id", requireAdmin, (req, _res, next) => {
   try {
-    validate(idParamSchema, { id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     next();
   } catch (error) {
     next(error);
@@ -94,7 +88,7 @@ router.delete("/:id", requireAdmin, (req, _res, next) => {
 
 router.post("/:id/subjects", requireAdmin, (req, _res, next) => {
   try {
-    validate(idParamSchema, { id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     validate(assignSubjectSchema, { body: req.body });
     next();
   } catch (error) {
@@ -104,7 +98,7 @@ router.post("/:id/subjects", requireAdmin, (req, _res, next) => {
 
 router.delete("/:id/subjects/:subjectId", requireAdmin, (req, _res, next) => {
   try {
-    validate(subjectParamSchema, { id: req.params.id, subjectId: req.params.subjectId });
+    subjectParamSchema.parse({ id: req.params.id, subjectId: req.params.subjectId });
     next();
   } catch (error) {
     next(error);
@@ -113,7 +107,7 @@ router.delete("/:id/subjects/:subjectId", requireAdmin, (req, _res, next) => {
 
 router.get("/:id/subjects", (req, _res, next) => {
   try {
-    validate(idParamSchema, { id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     next();
   } catch (error) {
     next(error);

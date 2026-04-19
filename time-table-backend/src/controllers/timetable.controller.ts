@@ -8,7 +8,7 @@ import { autoSchedulerService } from "../services/autoScheduler.service";
 export const timetableController = {
   async getClassTimetable(req: Request, res: Response, next: NextFunction) {
     try {
-      const classSectionId = Number(req.params.classSectionId);
+      const classSectionId = req.params.classSectionId as string;
       const data = await timetableService.getClassTimetable(classSectionId);
       res.status(200).json(data);
     } catch (error) {
@@ -33,7 +33,7 @@ export const timetableController = {
 
   async updateEntry(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await timetableService.updateEntry(id, req.body);
       res.status(200).json(data);
     } catch (error) {
@@ -43,7 +43,7 @@ export const timetableController = {
 
   async deleteEntry(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       await timetableService.deleteEntry(id);
       res.status(204).send();
     } catch (error) {
@@ -53,8 +53,8 @@ export const timetableController = {
 
   async getTeacherSchedule(req: Request, res: Response, next: NextFunction) {
     try {
-      const teacherId = Number(req.params.teacherId);
-      const academicYearId = req.query.academicYearId ? Number(req.query.academicYearId) : undefined;
+      const teacherId = req.params.teacherId as string;
+      const academicYearId = (req.query.academicYearId as string) || undefined;
       const data = await timetableService.getTeacherSchedule(teacherId, academicYearId);
       res.status(200).json(data);
     } catch (error) {
@@ -64,7 +64,7 @@ export const timetableController = {
 
   async exportTimetablePdf(req: Request, res: Response, next: NextFunction) {
     try {
-      const classSectionId = Number(req.params.classSectionId);
+      const classSectionId = req.params.classSectionId as string;
       const { buffer, fileName } = await pdfService.generateTimetablePdf(classSectionId);
 
       res.setHeader('Content-Type', 'application/pdf');
@@ -77,8 +77,8 @@ export const timetableController = {
 
   async getRoomOccupancy(req: Request, res: Response, next: NextFunction) {
     try {
-      const roomId = Number(req.params.roomId);
-      const academicYearId = req.query.academicYearId ? Number(req.query.academicYearId) : undefined;
+      const roomId = req.params.roomId as string;
+      const academicYearId = (req.query.academicYearId as string) || undefined;
       const data = await timetableService.getRoomOccupancy(roomId, academicYearId);
       res.status(200).json(data);
     } catch (error) {
@@ -88,7 +88,7 @@ export const timetableController = {
 
   async generateTimetable(req: Request, res: Response, next: NextFunction) {
     try {
-      const classSectionId = Number(req.params.classSectionId);
+      const classSectionId = req.params.classSectionId as string;
       const result = await autoSchedulerService.generateTimetable(classSectionId);
       res.status(200).json(result);
     } catch (error) {
@@ -98,7 +98,7 @@ export const timetableController = {
 
   async clearTimetable(req: Request, res: Response, next: NextFunction) {
     try {
-      const classSectionId = Number(req.params.classSectionId);
+      const classSectionId = req.params.classSectionId as string;
       await prisma.timetableEntry.deleteMany({
          where: { classSectionId }
       });
@@ -128,7 +128,7 @@ export const timetableController = {
 
   async cancelToday(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const reason = req.body.reason as string | undefined;
       // We assume `req.user` is populated by the `authenticate` middleware
       const user = req.user!;
@@ -141,7 +141,7 @@ export const timetableController = {
 
   async undoCancelToday(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const user = req.user!;
       const result = await timetableService.undoCancelToday(id, user);
       res.status(200).json(result);
@@ -152,7 +152,7 @@ export const timetableController = {
 
   async getTodayCancellations(req: Request, res: Response, next: NextFunction) {
     try {
-      const classSectionId = Number(req.query.classSectionId);
+      const classSectionId = req.query.classSectionId as string;
       if (!classSectionId) {
         return res.status(400).json({ error: "Missing classSectionId query parameter" });
       }

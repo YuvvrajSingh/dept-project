@@ -2,13 +2,16 @@
 
 Use these prompts in order. Always have CLAUDE.md open as context.
 
+> Note: This guide includes legacy scaffolding prompts. Current project runtime uses Prisma + MongoDB.
+> Prefer commands documented in `README.md` (`db:push`) over SQL migration workflows.
+
 ---
 
 ## Step 1 — Project Setup
 
 ```
 Using the spec in CLAUDE.md, set up a Node.js + TypeScript + Express + Prisma project.
-- Init package.json with scripts: dev, build, start, db:migrate, db:seed
+- Init package.json with scripts: dev, build, start, db:push, db:migrate (alias), db:seed
 - Create tsconfig.json with strict mode
 - Create .env.example with DATABASE_URL
 - Create src/index.ts that boots Express on port 3000 with JSON middleware and a /health endpoint
@@ -20,7 +23,7 @@ Using the spec in CLAUDE.md, set up a Node.js + TypeScript + Express + Prisma pr
 
 ```
 Using the database schema in CLAUDE.md, create prisma/schema.prisma exactly as specified.
-Then run: npx prisma migrate dev --name init
+Then run: npx prisma db push
 ```
 
 ## Step 3 — Seed File

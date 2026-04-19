@@ -1,0 +1,651 @@
+{
+  "contract_version": "1.0.0",
+  "service": {
+    "name": "timetable-ai-service",
+    "runtime": "fastapi",
+    "default_port": 8000,
+    "base_url": "http://127.0.0.1:8000",
+    "health_endpoint": "/healthz",
+    "docs_endpoint": "/docs"
+  },
+  "environment": {
+    "required": [
+      "DATABASE_URL",
+      "GRADEAI_SHARED_SECRET"
+    ],
+    "optional": [
+      "TIMETABLE_DB_NAME",
+      "AI_FASTAPI_BASE_URL",
+      "AI_PROXY_TIMEOUT_SECONDS",
+      "AI_LOCAL_MODE",
+      "AI_EXECUTION_DEVICE",
+      "PORT",
+      "CORS_ALLOW_ORIGINS"
+    ],
+    "notes": [
+      "Set AI_LOCAL_MODE=true for single-machine deployment with no separate worker.",
+      "AI_FASTAPI_BASE_URL is only needed when proxying to a separate upstream AI worker."
+    ]
+  },
+  "data_ownership": {
+    "department_timetable_ai_workflow_collections": [
+      "config",
+      "counters",
+      "teachers",
+      "exams",
+      "questions",
+      "submission_queue",
+      "student_results",
+      "objections"
+    ],
+    "department_timetable_core_collections": [
+      "User",
+      "Teacher",
+      "Student",
+      "ClassSection",
+      "Branch"
+    ]
+  },
+  "auth_contract": {
+    "teacher_identity_source": [
+      "department_timetable.User",
+      "department_timetable.Teacher"
+    ],
+    "allowed_roles": [
+      "teacher",
+      "admin"
+    ],
+    "password_hash_support": [
+      "bcrypt",
+      "legacy_sha256"
+    ],
+    "credential_fields": {
+      "identifier": [
+        "name",
+        "teacher_name"
+      ],
+      "password": "password"
+    }
+  },
+  "proxy_contract": {
+    "runtime_mode": {
+      "AI_LOCAL_MODE=true": "always local in-process grading",
+      "AI_LOCAL_MODE=false": "always proxy to AI_FASTAPI_BASE_URL",
+      "AI_LOCAL_MODE=auto": "local when upstream is unset/self, otherwise proxy"
+    },
+    "ai_proxied_endpoints": [
+      {
+        "local": "POST /api/student/upload",
+        "upstream": "POST /api/student/upload"
+      },
+      {
+        "local": "POST /api/admin/trigger-grading",
+        "upstream": "POST /api/admin/trigger-grading"
+      },
+      {
+        "local": "POST /api/teacher/process-pending/{exam_id}",
+        "upstream": "POST /api/teacher/process-pending/{exam_id}"
+      }
+    ],
+    "error_mapping": {
+      "503": "AI_FASTAPI_BASE_URL missing in proxy mode",
+      "502": "Upstream request/network failure"
+    }
+  },
+  "components": {
+    "schemas": {
+      "StudentVerifyRequest": {
+        "type": "object",
+        "required": [
+          "exam_id",
+          "roll_number"
+        ],
+        "properties": {
+          "exam_id": {
+            "type": "integer"
+          },
+          "roll_number": {
+            "type": "string"
+          }
+        }
+      },
+      "PhotoData": {
+        "type": "object",
+        "required": [
+          "question_number",
+          "images_base64"
+        ],
+        "properties": {
+          "question_number": {
+            "type": "integer"
+          },
+          "images_base64": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "StudentUploadRequest": {
+        "type": "object",
+        "required": [
+          "exam_id",
+          "student_name",
+          "roll_number",
+          "year",
+          "branch",
+          "questions"
+        ],
+        "properties": {
+          "exam_id": {
+            "type": "integer"
+          },
+          "student_name": {
+            "type": "string"
+          },
+          "roll_number": {
+            "type": "string"
+          },
+          "year": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PhotoData"
+            }
+          }
+        }
+      }
+    }
+  },
+  "endpoint_contract": [
+    {
+      "operation_id": "healthz",
+      "method": "GET",
+      "path": "/healthz",
+      "auth": "none",
+      "request": {
+        "type": "none"
+      },
+      "responses": {
+        "200": {
+          "description": "service health",
+          "content_type": "application/json"
+        }
+      }
+    },
+    {
+      "operation_id": "proxy_status",
+      "method": "GET",
+      "path": "/api/proxy/status",
+      "auth": "none",
+      "request": {
+        "type": "none"
+      },
+      "responses": {
+        "200": {
+          "description": "proxy configuration",
+          "content_type": "application/json"
+        }
+      }
+    },
+    {
+      "operation_id": "options",
+      "method": "GET",
+      "path": "/options",
+      "auth": "none",
+      "request": {
+        "type": "none"
+      },
+      "responses": {
+        "200": {
+          "description": "branch and year options"
+        }
+      }
+    },
+    {
+      "operation_id": "teacher_register",
+      "method": "POST",
+      "path": "/api/teacher/register",
+      "auth": "n/a",
+      "request": {
+        "type": "none"
+      },
+      "responses": {
+        "405": {
+          "description": "disabled, registration managed by department_timetable backend"
+        }
+      }
+    },
+    {
+      "operation_id": "teacher_login",
+      "method": "POST",
+      "path": "/api/teacher/login",
+      "auth": "teacher",
+      "request": {
+        "type": "form",
+        "required_fields": [
+          "name",
+          "password"
+        ]
+      },
+      "responses": {
+        "200": {
+          "description": "login successful"
+        },
+        "401": {
+          "description": "invalid credentials"
+        },
+        "403": {
+          "description": "role not allowed"
+        }
+      }
+    },
+    {
+      "operation_id": "teacher_change_password",
+      "method": "POST",
+      "path": "/api/teacher/change-password",
+      "auth": "teacher",
+      "request": {
+        "type": "form",
+        "required_fields": [
+          "teacher_name",
+          "old_password",
+          "new_password"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_delete_account",
+      "method": "POST",
+      "path": "/api/teacher/delete-account",
+      "auth": "teacher",
+      "request": {
+        "type": "form",
+        "required_fields": [
+          "name",
+          "password"
+        ]
+      }
+    },
+    {
+      "operation_id": "get_session",
+      "method": "GET",
+      "path": "/api/config/session",
+      "auth": "none",
+      "request": {
+        "type": "none"
+      }
+    },
+    {
+      "operation_id": "update_session",
+      "method": "POST",
+      "path": "/api/config/session",
+      "auth": "teacher",
+      "request": {
+        "type": "form",
+        "required_fields": [
+          "session",
+          "teacher_name",
+          "password"
+        ]
+      },
+      "responses": {
+        "400": {
+          "description": "invalid session format"
+        }
+      }
+    },
+    {
+      "operation_id": "teacher_create_exam",
+      "method": "POST",
+      "path": "/api/teacher/create-exam",
+      "auth": "teacher",
+      "request": {
+        "type": "form",
+        "required_fields": [
+          "teacher_name",
+          "password",
+          "year",
+          "branch",
+          "subject",
+          "semester",
+          "exam_type"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_add_question",
+      "method": "POST",
+      "path": "/api/teacher/add-question",
+      "auth": "teacher",
+      "request": {
+        "type": "multipart_form",
+        "required_fields": [
+          "exam_id",
+          "teacher_name",
+          "password",
+          "question_number",
+          "question_text",
+          "model_answer",
+          "total_marks"
+        ],
+        "optional_fields": [
+          "diagram_image",
+          "diagram_url"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_get_attendance",
+      "method": "GET",
+      "path": "/api/teacher/get_attendance/{exam_id}",
+      "auth": "teacher",
+      "request": {
+        "type": "query",
+        "required_query": [
+          "teacher_name",
+          "password"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_get_submissions",
+      "method": "GET",
+      "path": "/api/teacher/get_submissions/{exam_id}",
+      "auth": "teacher",
+      "request": {
+        "type": "query",
+        "required_query": [
+          "teacher_name",
+          "password"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_my_exams",
+      "method": "GET",
+      "path": "/api/teacher/my-exams",
+      "auth": "teacher",
+      "request": {
+        "type": "query",
+        "required_query": [
+          "teacher_name",
+          "password"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_publish_results",
+      "method": "POST",
+      "path": "/api/teacher/publish-results/{exam_id}",
+      "auth": "teacher",
+      "request": {
+        "type": "form",
+        "required_fields": [
+          "teacher_name",
+          "password"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_toggle_exam_status",
+      "method": "POST",
+      "path": "/api/teacher/toggle-exam-status/{exam_id}",
+      "auth": "teacher",
+      "request": {
+        "type": "form",
+        "required_fields": [
+          "teacher_name",
+          "password"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_delete_exam",
+      "method": "DELETE",
+      "path": "/api/teacher/delete-exam/{exam_id}",
+      "auth": "teacher",
+      "request": {
+        "type": "query",
+        "required_query": [
+          "teacher_name",
+          "password"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_get_objections",
+      "method": "GET",
+      "path": "/api/teacher/objections/{exam_id}",
+      "auth": "teacher",
+      "request": {
+        "type": "query",
+        "required_query": [
+          "teacher_name",
+          "password"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_resolve_objection",
+      "method": "POST",
+      "path": "/api/teacher/resolve-objection",
+      "auth": "teacher",
+      "request": {
+        "type": "form",
+        "required_fields": [
+          "obj_id",
+          "teacher_name",
+          "password",
+          "feedback"
+        ],
+        "optional_fields": [
+          "new_marks"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_grading_progress",
+      "method": "GET",
+      "path": "/api/teacher/grading_progress/{exam_id}",
+      "auth": "teacher",
+      "request": {
+        "type": "query",
+        "required_query": [
+          "teacher_name",
+          "password"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_get_results",
+      "method": "GET",
+      "path": "/api/teacher/get-results/{exam_id}",
+      "auth": "teacher",
+      "request": {
+        "type": "query",
+        "required_query": [
+          "teacher_name",
+          "password"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_get_student_details",
+      "method": "GET",
+      "path": "/api/teacher/get-student-details/{exam_id}/{roll_number}",
+      "auth": "teacher",
+      "request": {
+        "type": "query",
+        "required_query": [
+          "teacher_name",
+          "password"
+        ]
+      }
+    },
+    {
+      "operation_id": "teacher_export_results_csv",
+      "method": "GET",
+      "path": "/api/teacher/export-results-csv/{exam_id}",
+      "auth": "teacher",
+      "request": {
+        "type": "query",
+        "required_query": [
+          "teacher_name",
+          "password"
+        ]
+      },
+      "responses": {
+        "200": {
+          "content_type": "text/csv"
+        }
+      }
+    },
+    {
+      "operation_id": "teacher_process_pending",
+      "method": "POST",
+      "path": "/api/teacher/process-pending/{exam_id}",
+      "auth": "teacher",
+      "request": {
+        "type": "form",
+        "required_fields": [
+          "teacher_name",
+          "password"
+        ]
+      },
+      "execution": "local_or_proxied"
+    },
+    {
+      "operation_id": "student_active_exams",
+      "method": "GET",
+      "path": "/api/student/active-exams/{roll_number}",
+      "auth": "student",
+      "request": {
+        "type": "path"
+      },
+      "responses": {
+        "404": {
+          "description": "student not found"
+        }
+      }
+    },
+    {
+      "operation_id": "student_verify",
+      "method": "POST",
+      "path": "/api/student/verify",
+      "auth": "student",
+      "request": {
+        "type": "json",
+        "schema_ref": "#/components/schemas/StudentVerifyRequest"
+      },
+      "notes": [
+        "May return HTTP 200 with { error: ... } body for invalid states."
+      ]
+    },
+    {
+      "operation_id": "student_upload",
+      "method": "POST",
+      "path": "/api/student/upload",
+      "auth": "student",
+      "request": {
+        "type": "form",
+        "required_fields": [
+          "exam_id",
+          "roll_number"
+        ],
+        "question_file_field_pattern": "q_<questionNumber>",
+        "optional_fields": [
+          "student_name",
+          "year",
+          "branch",
+          "email"
+        ]
+      },
+      "notes": [
+        "Single-sheet scanned_sheet upload is not supported.",
+        "Primary contract is multipart/form-data with question-wise fields like q_1, q_2.",
+        "Legacy JSON StudentUploadRequest is backward-compatible.",
+        "In local mode, submission is graded in-process on this service."
+      ],
+      "execution": "local_or_proxied"
+    },
+    {
+      "operation_id": "student_results",
+      "method": "GET",
+      "path": "/api/student/results/{exam_id}/{roll_number}",
+      "auth": "student",
+      "request": {
+        "type": "path"
+      },
+      "responses": {
+        "403": {
+          "description": "results not yet published"
+        },
+        "404": {
+          "description": "results not found"
+        }
+      }
+    },
+    {
+      "operation_id": "admin_trigger_grading",
+      "method": "POST",
+      "path": "/api/admin/trigger-grading",
+      "auth": "admin",
+      "request": {
+        "type": "form",
+        "required_fields": [
+          "exam_id"
+        ]
+      },
+      "execution": "local_or_proxied"
+    }
+  ],
+  "integration_sequences": {
+    "teacher_flow": [
+      "POST /api/teacher/login",
+      "POST /api/teacher/create-exam",
+      "POST /api/teacher/add-question",
+      "GET /api/teacher/get_attendance/{exam_id}",
+      "GET /api/teacher/grading_progress/{exam_id}",
+      "POST /api/teacher/publish-results/{exam_id}"
+    ],
+    "student_flow": [
+      "GET /api/student/active-exams/{roll_number}",
+      "POST /api/student/verify",
+      "POST /api/student/upload",
+      "GET /api/student/results/{exam_id}/{roll_number}"
+    ],
+    "admin_flow": [
+      "POST /api/admin/trigger-grading",
+      "POST /api/teacher/process-pending/{exam_id}"
+    ]
+  },
+  "llm_context": {
+    "domain": "academic exam grading workflow",
+    "branch_values": [
+      "CSE",
+      "IT",
+      "ADS"
+    ],
+    "year_values": [
+      "1st Year",
+      "2nd Year",
+      "3rd Year",
+      "4th Year"
+    ],
+    "student_key": "roll_number (normalized uppercase)",
+    "identity_resolution": "Student -> ClassSection -> Branch",
+    "non_standard_behavior": [
+      "POST /api/student/verify may return HTTP 200 with an error field."
+    ]
+  }
+}

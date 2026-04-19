@@ -2,7 +2,7 @@ import { prisma } from "../prisma/client";
 import { AcademicYearStatus } from "@prisma/client";
 import { AppError } from "../utils/AppError";
 
-const assertClassExists = async (id: number) => {
+const assertClassExists = async (id: string) => {
   const classSection = await prisma.classSection.findUnique({
     where: { id },
     include: { academicYear: true },
@@ -13,7 +13,7 @@ const assertClassExists = async (id: number) => {
   return classSection;
 };
 
-const assertNotArchived = async (academicYearId: number) => {
+const assertNotArchived = async (academicYearId: string) => {
   const year = await prisma.academicYear.findUnique({ where: { id: academicYearId } });
   if (!year) {
     throw new AppError("Academic year not found", 404, "NOT_FOUND");
@@ -25,7 +25,7 @@ const assertNotArchived = async (academicYearId: number) => {
 };
 
 export const classService = {
-  listClassSections(academicYearId?: number) {
+  listClassSections(academicYearId?: string) {
     return prisma.classSection.findMany({
       where: academicYearId ? { academicYearId } : undefined,
       include: { branch: true, academicYear: true },
@@ -33,7 +33,7 @@ export const classService = {
     });
   },
 
-  async getClassSectionById(id: number) {
+  async getClassSectionById(id: string) {
     const classSection = await prisma.classSection.findUnique({
       where: { id },
       include: { branch: true, academicYear: true },
@@ -46,7 +46,7 @@ export const classService = {
     return classSection;
   },
 
-  async createClassSection(data: { branchName: string; year: 2 | 3 | 4; semester: number; academicYearId: number }) {
+  async createClassSection(data: { branchName: string; year: 2 | 3 | 4; semester: number; academicYearId: string }) {
     await assertNotArchived(data.academicYearId);
 
     const branch = await prisma.branch.upsert({
@@ -81,11 +81,11 @@ export const classService = {
     });
   },
 
-  async updateClassSection(id: number, data: Partial<{ branchName: string; year: 2 | 3 | 4; semester: number }>) {
+  async updateClassSection(id: string, data: Partial<{ branchName: string; year: 2 | 3 | 4; semester: number }>) {
     const classSection = await assertClassExists(id);
     await assertNotArchived(classSection.academicYearId);
 
-    let updatedBranchId: number | undefined;
+    let updatedBranchId: string | undefined;
     if (data.branchName !== undefined) {
       const branch = await prisma.branch.upsert({
         where: { name: data.branchName },
@@ -131,13 +131,13 @@ export const classService = {
     });
   },
 
-  async deleteClassSection(id: number) {
+  async deleteClassSection(id: string) {
     const classSection = await assertClassExists(id);
     await assertNotArchived(classSection.academicYearId);
     await prisma.classSection.delete({ where: { id } });
   },
 
-  async assignSubject(classSectionId: number, subjectId: number) {
+  async assignSubject(classSectionId: string, subjectId: string) {
     const classSection = await assertClassExists(classSectionId);
     await assertNotArchived(classSection.academicYearId);
 
@@ -162,7 +162,7 @@ export const classService = {
     });
   },
 
-  async removeSubject(classSectionId: number, subjectId: number) {
+  async removeSubject(classSectionId: string, subjectId: string) {
     const classSection = await assertClassExists(classSectionId);
     await assertNotArchived(classSection.academicYearId);
 
@@ -177,7 +177,7 @@ export const classService = {
     await prisma.classSubject.delete({ where: { id: existing.id } });
   },
 
-  async getClassSubjects(classSectionId: number) {
+  async getClassSubjects(classSectionId: string) {
     await assertClassExists(classSectionId);
 
     return prisma.classSubject.findMany({

@@ -1,11 +1,8 @@
-import { Router } from "express";
-import { z } from "zod";
+import { Router, z, requireAdmin, idParamSchema, objectIdSchema } from "./shared";
 import { academicYearController } from "../controllers/academicYear.controller";
-import { requireAdmin } from "../middleware/auth.middleware";
 
 const router = Router();
 
-const idSchema = z.object({ id: z.coerce.number().int().positive() });
 
 const createSchema = z.object({
   body: z.object({
@@ -30,7 +27,7 @@ const statusSchema = z.object({
 
 const cloneSchema = z.object({
   body: z.object({
-    sourceId: z.coerce.number().int().positive(),
+    sourceId: objectIdSchema,
   }),
 });
 
@@ -47,7 +44,7 @@ router.get("/active", academicYearController.getActive);
 // GET /api/academic-years/:id
 router.get("/:id", (req, _res, next) => {
   try {
-    validate(idSchema, { id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     next();
   } catch (error) {
     next(error);
@@ -72,7 +69,7 @@ router.post(
 // PUT /api/academic-years/:id
 router.put("/:id", requireAdmin, (req, _res, next) => {
   try {
-    validate(idSchema, { id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     validate(updateSchema, { body: req.body });
     next();
   } catch (error) {
@@ -83,7 +80,7 @@ router.put("/:id", requireAdmin, (req, _res, next) => {
 // PUT /api/academic-years/:id/status
 router.put("/:id/status", requireAdmin, (req, _res, next) => {
   try {
-    validate(idSchema, { id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     validate(statusSchema, { body: req.body });
     next();
   } catch (error) {
@@ -94,7 +91,7 @@ router.put("/:id/status", requireAdmin, (req, _res, next) => {
 // PUT /api/academic-years/:id/activate
 router.put("/:id/activate", requireAdmin, (req, _res, next) => {
   try {
-    validate(idSchema, { id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     next();
   } catch (error) {
     next(error);
@@ -104,7 +101,7 @@ router.put("/:id/activate", requireAdmin, (req, _res, next) => {
 // POST /api/academic-years/:id/clone
 router.post("/:id/clone", requireAdmin, (req, _res, next) => {
   try {
-    validate(idSchema, { id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     validate(cloneSchema, { body: req.body });
     next();
   } catch (error) {
@@ -118,7 +115,7 @@ router.delete("/all", requireAdmin, academicYearController.removeAll);
 // DELETE /api/academic-years/:id
 router.delete("/:id", requireAdmin, (req, _res, next) => {
   try {
-    validate(idSchema, { id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     next();
   } catch (error) {
     next(error);

@@ -22,7 +22,7 @@ export const roomController = {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await roomService.updateRoom(id, req.body);
       res.status(200).json(data);
     } catch (error) {
@@ -32,7 +32,7 @@ export const roomController = {
 
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       await roomService.deleteRoom(id);
       res.status(204).send();
     } catch (error) {

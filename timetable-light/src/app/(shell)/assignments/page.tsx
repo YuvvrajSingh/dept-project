@@ -13,8 +13,8 @@ export default function AssignmentsPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [classes, setClasses] = useState<ClassSection[]>([]);
-  const [selectedTeacher, setSelectedTeacher] = useState<number | null>(null);
-  const [selectedClass, setSelectedClass] = useState<number | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
+  const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [teacherSubjects, setTeacherSubjects] = useState<TeacherSubject[]>([]);
   const [classSubjects, setClassSubjects] = useState<ClassSubject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +24,7 @@ export default function AssignmentsPage() {
   const [assignSubjectId, setAssignSubjectId] = useState("");
   // Class filter inside the Teacher→Subject modal
   const [modalFilterClassId, setModalFilterClassId] = useState("");
-  const [modalClassSubjectIds, setModalClassSubjectIds] = useState<number[] | null>(null);
+  const [modalClassSubjectIds, setModalClassSubjectIds] = useState<string[] | null>(null);
   const [modalClassLoading, setModalClassLoading] = useState(false);
 
   useEffect(() => {
@@ -46,13 +46,13 @@ export default function AssignmentsPage() {
     load();
   }, [selectedYear, yearLoading]);
 
-  async function loadTeacherSubjects(tId: number) {
+  async function loadTeacherSubjects(tId: string) {
     setSelectedTeacher(tId);
     const ts = await teacherApi.getSubjects(tId).catch(() => []);
     setTeacherSubjects(ts);
   }
 
-  async function loadClassSubjects(cId: number) {
+  async function loadClassSubjects(cId: string) {
     setSelectedClass(cId);
     const cs = await classApi.getSubjects(cId).catch(() => []);
     setClassSubjects(cs);
@@ -67,7 +67,7 @@ export default function AssignmentsPage() {
     }
     setModalClassLoading(true);
     try {
-      const cs = await classApi.getSubjects(parseInt(classIdStr)).catch(() => []);
+      const cs = await classApi.getSubjects(classIdStr).catch(() => []);
       setModalClassSubjectIds(cs.map((x: ClassSubject) => x.subjectId));
     } finally {
       setModalClassLoading(false);
@@ -82,7 +82,7 @@ export default function AssignmentsPage() {
   }
 
   async function handleAssign() {
-    const subId = parseInt(assignSubjectId);
+    const subId = assignSubjectId;
     if (!subId) return;
     try {
       if (view === "teacher-subject" && selectedTeacher) {
@@ -98,12 +98,12 @@ export default function AssignmentsPage() {
     }
   }
 
-  async function handleRemoveTS(teacherId: number, subjectId: number) {
+  async function handleRemoveTS(teacherId: string, subjectId: string) {
     await teacherApi.removeSubject(teacherId, subjectId).catch(() => {});
     loadTeacherSubjects(teacherId);
   }
 
-  async function handleRemoveCS(classId: number, subjectId: number) {
+  async function handleRemoveCS(classId: string, subjectId: string) {
     await classApi.removeSubject(classId, subjectId).catch(() => {});
     loadClassSubjects(classId);
   }

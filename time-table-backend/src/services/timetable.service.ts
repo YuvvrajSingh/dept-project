@@ -4,6 +4,7 @@ import { AppError } from "../utils/AppError";
 import { buildMatrix } from "../utils/timetableMatrix";
 import { DAY_LABELS, LAB_GROUPS } from "../utils/timetableConstants";
 import { institutionTodayDateOnly, institutionTodayDayOfWeek, isSlotStarted, nowInInstitutionTz } from "../utils/timezone";
+import { getParitySemesterList } from "../utils/semesterParity";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -11,24 +12,24 @@ type DbClient = PrismaClient | Prisma.TransactionClient;
 // All inputs use slotOrder (1–6 integer) which the service resolves to a slotId FK.
 
 type TheoryEntryInput = {
-  classSectionId: number;
+  classSectionId: string;
   day: number;
   slotStart: number; // 1–6 integer sent by the frontend; resolved to slotId internally
   entryType?: TimetableEntryType;
-  subjectId: number;
-  teacherId: number;
-  roomId: number;
+  subjectId: string;
+  teacherId: string;
+  roomId: string;
 };
 
 type LabGroupInput = {
   groupName: string;
-  subjectId: number;
-  labId: number;
-  teacherId: number;
+  subjectId: string;
+  labId: string;
+  teacherId: string;
 };
 
 type LabEntryInput = {
-  classSectionId: number;
+  classSectionId: string;
   day: number;
   slotStart: number; // 1–6 integer sent by the frontend; the LAB occupies slotStart AND slotStart+1
   entryType?: TimetableEntryType;
@@ -41,7 +42,7 @@ type LabEntryInput = {
  * Resolves a slot by its order value (1–6) and returns its id.
  * Throws 400 if the order is out of range or no matching Slot row exists.
  */
-const resolveSlotId = async (db: DbClient, slotOrder: number): Promise<number> => {
+const resolveSlotId = async (db: DbClient, slotOrder: number): Promise<string> => {
   if (!Number.isInteger(slotOrder) || slotOrder < 1 || slotOrder > 6) {
     throw new AppError("slotOrder must be an integer between 1 and 6", 400, "VALIDATION_ERROR");
   }
@@ -60,10 +61,10 @@ const assertDay = (day: number) => {
   }
 };
 
-const getAcademicYearIdForClass = async (db: DbClient, classSectionId: number): Promise<number> => {
+const getClassSectionMetadata = async (db: DbClient, classSectionId: string): Promise<{ academicYearId: string; semester: number }> => {
   const cs = await (db as PrismaClient).classSection.findUnique({
     where: { id: classSectionId },
-    select: { academicYearId: true, academicYear: true },
+    select: { academicYearId: true, semester: true, academicYear: true },
   });
   if (!cs) {
     throw new AppError("Class section not found", 404, "NOT_FOUND");
@@ -71,13 +72,13 @@ const getAcademicYearIdForClass = async (db: DbClient, classSectionId: number): 
   if (cs.academicYear.status === AcademicYearStatus.ARCHIVED) {
     throw new AppError("Cannot modify timetable in an archived academic year", 403, "FORBIDDEN");
   }
-  return cs.academicYearId;
+  return { academicYearId: cs.academicYearId, semester: cs.semester };
 };
 
 const assertClassAndSubjectPrereq = async (
   db: DbClient,
-  classSectionId: number,
-  subjectId: number,
+  classSectionId: string,
+  subjectId: string,
 ): Promise<void> => {
   const classSection = await (db as PrismaClient).classSection.findUnique({ where: { id: classSectionId } });
   if (!classSection) {
@@ -99,8 +100,8 @@ const assertClassAndSubjectPrereq = async (
 
 const assertTeacherSubjectPrereq = async (
   db: DbClient,
-  teacherId: number,
-  subjectId: number,
+  teacherId: string,
+  subjectId: string,
 ): Promise<void> => {
   const teacher = await (db as PrismaClient).teacher.findUnique({ where: { id: teacherId } });
   if (!teacher) {
@@ -159,7 +160,7 @@ const formatClassLabel = (
 type LogParams = {
   db: DbClient;
   type: NotificationLogType;
-  timetableEntryId?: number;
+  timetableEntryId?: string;
   performedBy?: string;
   message: string;
   metadata?: any;
@@ -193,16 +194,21 @@ const getLogMetadata = (entry: any) => {
   };
 };
 
-// Scope filter: only check conflicts within the same academic year
-const yearScopeFilter = (academicYearId: number) => ({
-  classSection: { academicYearId },
+// Scope filter: only check conflicts within the same academic year and semester parity
+const parityScopeFilter = (academicYearId: string, semester: number) => ({
+  classSection: {
+    academicYearId,
+    semester: {
+      in: getParitySemesterList(semester),
+    },
+  },
 });
 
 // ─── Core Write Operations ────────────────────────────────────────────────────
 
 const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
   validateTheoryShape(data);
-  const academicYearId = await getAcademicYearIdForClass(db, data.classSectionId);
+  const { academicYearId, semester } = await getClassSectionMetadata(db, data.classSectionId);
   await assertClassAndSubjectPrereq(db, data.classSectionId, data.subjectId);
   await assertTeacherSubjectPrereq(db, data.teacherId, data.subjectId);
 
@@ -224,7 +230,7 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
   // Teacher conflicts — check theory entries
   const theoryTeacherConflict = await (db as PrismaClient).timetableEntry.findFirst({
     where: {
-      ...yearScopeFilter(academicYearId),
+      ...parityScopeFilter(academicYearId, semester),
       teacherId: data.teacherId,
       day: data.day,
       slotId,
@@ -258,7 +264,7 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
     where: {
       teacherId: data.teacherId,
       timetableEntry: {
-        ...yearScopeFilter(academicYearId),
+        ...parityScopeFilter(academicYearId, semester),
         day: data.day,
         ...labSlotFilter,
       },
@@ -279,7 +285,7 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
   // Room conflict
   const roomConflict = await (db as PrismaClient).timetableEntry.findFirst({
     where: {
-      ...yearScopeFilter(academicYearId),
+      ...parityScopeFilter(academicYearId, semester),
       roomId: data.roomId,
       day: data.day,
       slotId,
@@ -327,7 +333,7 @@ const createTheory = async (db: DbClient, data: TheoryEntryInput) => {
 
 const createLab = async (db: DbClient, data: LabEntryInput) => {
   validateLabShape(data);
-  const academicYearId = await getAcademicYearIdForClass(db, data.classSectionId);
+  const { academicYearId, semester } = await getClassSectionMetadata(db, data.classSectionId);
 
   for (const group of data.labGroups) {
     await assertClassAndSubjectPrereq(db, data.classSectionId, group.subjectId);
@@ -362,7 +368,7 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
     // Teacher conflict — theory entries in either lab slot
     const theoryTeacherConflict = await (db as PrismaClient).timetableEntry.findFirst({
       where: {
-        ...yearScopeFilter(academicYearId),
+        ...parityScopeFilter(academicYearId, semester),
         teacherId: group.teacherId,
         day: data.day,
         slotId: { in: labSlotIds },
@@ -382,7 +388,7 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
       where: {
         teacherId: group.teacherId,
         timetableEntry: {
-          ...yearScopeFilter(academicYearId),
+          ...parityScopeFilter(academicYearId, semester),
           day: data.day,
           slotId: { in: labSlotIds },
         },
@@ -404,7 +410,7 @@ const createLab = async (db: DbClient, data: LabEntryInput) => {
       where: {
         labId: group.labId,
         timetableEntry: {
-          ...yearScopeFilter(academicYearId),
+          ...parityScopeFilter(academicYearId, semester),
           day: data.day,
           slotId: { in: labSlotIds },
         },
@@ -475,7 +481,7 @@ export const timetableService = {
     return prisma.$transaction((tx) => createLab(tx, data));
   },
 
-  async deleteEntry(id: number) {
+  async deleteEntry(id: string) {
     const existing = await prisma.timetableEntry.findUnique({
       where: { id },
       include: {
@@ -508,7 +514,7 @@ export const timetableService = {
     await prisma.timetableEntry.delete({ where: { id } });
   },
 
-  async updateEntry(id: number, data: TheoryEntryInput | LabEntryInput) {
+  async updateEntry(id: string, data: TheoryEntryInput | LabEntryInput) {
     const existing = await prisma.timetableEntry.findUnique({
       where: { id },
       include: {
@@ -556,7 +562,7 @@ export const timetableService = {
     });
   },
 
-  async getClassTimetable(classSectionId: number) {
+  async getClassTimetable(classSectionId: string) {
     const classSection = await prisma.classSection.findUnique({
       where: { id: classSectionId },
       include: { branch: true, academicYear: true },
@@ -594,7 +600,7 @@ export const timetableService = {
     };
   },
 
-  async getTeacherSchedule(teacherId: number, academicYearId?: number) {
+  async getTeacherSchedule(teacherId: string, academicYearId?: string) {
     const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } });
     if (!teacher) {
       throw new AppError("Teacher not found", 404, "NOT_FOUND");
@@ -649,7 +655,7 @@ export const timetableService = {
     return { teacher, theoryEntries, labEntries, cancellations };
   },
 
-  async getRoomOccupancy(roomId: number, academicYearId?: number) {
+  async getRoomOccupancy(roomId: string, academicYearId?: string) {
     const room = await prisma.room.findUnique({ where: { id: roomId } });
     if (!room) {
       throw new AppError("Room not found", 404, "NOT_FOUND");
@@ -691,7 +697,7 @@ export const timetableService = {
     });
   },
 
-  async cancelToday(id: number, reason: string | undefined, user: { id: number; role: Role; teacherId: number | null }) {
+  async cancelToday(id: string, reason: string | undefined, user: { id: string; role: Role; teacherId: string | null }) {
     const entry = await prisma.timetableEntry.findUnique({
       where: { id },
       include: {
@@ -758,7 +764,7 @@ export const timetableService = {
     return cancellation;
   },
 
-  async undoCancelToday(id: number, user: { id: number; role: Role; teacherId: number | null }) {
+  async undoCancelToday(id: string, user: { id: string; role: Role; teacherId: string | null }) {
     const entry = await prisma.timetableEntry.findUnique({
       where: { id },
       include: {
@@ -805,21 +811,35 @@ export const timetableService = {
     return { success: true };
   },
 
-  async getTodayCancellations(classSectionId: number) {
-    const cancelDate = institutionTodayDateOnly();
-    const cancellations = await prisma.entryCancellation.findMany({
+  async getTodayCancellations(classSectionId: string) {
+    try {
+    const results = await prisma.entryCancellation.findMany({
       where: {
-        cancelDate,
-        timetableEntry: { classSectionId }
+        cancelDate: institutionTodayDateOnly(),
+        timetableEntry: {
+          classSectionId
+        }
       },
       include: {
         timetableEntry: {
-          include: { subject: true, slot: true, labGroups: { include: { subject: true } } }
+          include: {
+            slot: true,
+            subject: true,
+            teacher: true,
+            room: true,
+            labGroups: {
+              include: {
+                subject: true,
+                lab: true,
+                teacher: true
+              }
+            }
+          }
         }
       }
     });
 
-    return cancellations.map(c => {
+    return results.map(c => {
       const e = c.timetableEntry;
       return {
         timetableEntryId: e.id,
@@ -830,5 +850,8 @@ export const timetableService = {
         cancelledAt: c.createdAt
       };
     });
+    } catch (error) {
+      throw error;
+    }
   }
 };

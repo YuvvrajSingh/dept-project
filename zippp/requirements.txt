@@ -1,0 +1,11 @@
+bcrypt==4.2.0
+certifi==2024.8.30
+fastapi==0.115.13
+httpx==0.27.2
+pillow==12.0.0
+pymongo==4.8.0
+requests==2.32.3
+sentence-transformers==3.0.1
+python-dotenv==1.0.1
+python-multipart==0.0.9
+uvicorn==0.30.6

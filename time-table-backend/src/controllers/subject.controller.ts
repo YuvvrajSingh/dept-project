@@ -13,7 +13,7 @@ export const subjectController = {
 
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await subjectService.getSubjectById(id);
       res.status(200).json(data);
     } catch (error) {
@@ -32,7 +32,7 @@ export const subjectController = {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await subjectService.updateSubject(id, req.body);
       res.status(200).json(data);
     } catch (error) {
@@ -42,7 +42,7 @@ export const subjectController = {
 
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       await subjectService.deleteSubject(id);
       res.status(204).send();
     } catch (error) {

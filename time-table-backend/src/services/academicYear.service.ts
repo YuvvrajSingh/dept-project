@@ -12,7 +12,7 @@ export const academicYearService = {
     });
   },
 
-  async getById(id: number) {
+  async getById(id: string) {
     const year = await prisma.academicYear.findUnique({
       where: { id },
       include: {
@@ -67,7 +67,7 @@ export const academicYearService = {
     });
   },
 
-  async update(id: number, data: { startDate?: string; endDate?: string }) {
+  async update(id: string, data: { startDate?: string; endDate?: string }) {
     const year = await this.getById(id);
     if (year.status === AcademicYearStatus.ARCHIVED) {
       throw new AppError("Cannot modify an archived academic year", 403, "FORBIDDEN");
@@ -82,7 +82,7 @@ export const academicYearService = {
     });
   },
 
-  async updateStatus(id: number, status: AcademicYearStatus) {
+  async updateStatus(id: string, status: AcademicYearStatus) {
     const year = await this.getById(id);
 
     // Enforce lifecycle: DRAFT → ACTIVE → ARCHIVED
@@ -106,7 +106,7 @@ export const academicYearService = {
     });
   },
 
-  async activate(id: number) {
+  async activate(id: string) {
     const year = await this.getById(id);
     if (year.status === AcademicYearStatus.ARCHIVED) {
       throw new AppError("Cannot activate an archived academic year", 400, "VALIDATION_ERROR");
@@ -130,7 +130,7 @@ export const academicYearService = {
     });
   },
 
-  async clone(sourceId: number, targetId: number) {
+  async clone(sourceId: string, targetId: string) {
     const source = await this.getById(sourceId);
     const target = await this.getById(targetId);
 
@@ -226,7 +226,7 @@ export const academicYearService = {
     });
   },
 
-  async remove(id: number) {
+  async remove(id: string) {
     const year = await this.getById(id);
 
     return prisma.$transaction(async (tx) => {

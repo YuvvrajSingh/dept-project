@@ -10,13 +10,13 @@ export default function TeacherPortalSubjectsPage() {
   const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
   const [classes, setClasses] = useState<ClassSection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addingId, setAddingId] = useState<number | null>(null);
-  const [removingId, setRemovingId] = useState<number | null>(null);
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
   
   // Filter by class state
   const [filterClassId, setFilterClassId] = useState<string>("");
-  const [classSubjectIds, setClassSubjectIds] = useState<number[] | null>(null);
+  const [classSubjectIds, setClassSubjectIds] = useState<string[] | null>(null);
   const [classLoading, setClassLoading] = useState(false);
   
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +59,7 @@ export default function TeacherPortalSubjectsPage() {
     }
     setClassLoading(true);
     try {
-      const cs = await classApi.getSubjects(parseInt(classIdStr)).catch(() => []);
+      const cs = await classApi.getSubjects(classIdStr).catch(() => []);
       setClassSubjectIds(cs.map((x: ClassSubject) => x.subjectId));
     } finally {
       setClassLoading(false);
@@ -74,10 +74,10 @@ export default function TeacherPortalSubjectsPage() {
 
   async function handleAssign() {
     if (!selectedSubjectId || !teacher) return;
-    setAddingId(Number(selectedSubjectId));
+    setAddingId(selectedSubjectId);
     setError(null);
     try {
-      await teacherApi.assignSubject(teacher.id, Number(selectedSubjectId));
+      await teacherApi.assignSubject(teacher.id, selectedSubjectId);
       setSelectedSubjectId("");
       await loadData();
     } catch (err: unknown) {
@@ -87,7 +87,7 @@ export default function TeacherPortalSubjectsPage() {
     }
   }
 
-  async function handleRemove(subjectId: number) {
+  async function handleRemove(subjectId: string) {
     if (!teacher) return;
     setRemovingId(subjectId);
     setError(null);

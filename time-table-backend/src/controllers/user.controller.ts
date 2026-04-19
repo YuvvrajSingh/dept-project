@@ -18,7 +18,7 @@ export const userController = {
         email: string;
         password: string;
         role: Role;
-        teacherId?: number;
+        teacherId?: string;
       };
       const user = await userService.createUser(body);
       res.status(201).json({
@@ -34,7 +34,7 @@ export const userController = {
 
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       await userService.deleteUser(id);
       res.status(204).send();
     } catch (error) {

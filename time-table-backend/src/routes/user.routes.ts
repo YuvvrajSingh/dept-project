@@ -1,7 +1,5 @@
-import { Router } from "express";
-import { z } from "zod";
+import { Router, z, requireAdmin, idParamSchema, objectIdSchema } from "./shared";
 import { userController } from "../controllers/user.controller";
-import { requireAdmin } from "../middleware/auth.middleware";
 
 const router = Router();
 
@@ -13,7 +11,7 @@ const createUserSchema = z
       email: z.string().email(),
       password: z.string().min(8),
       role: z.enum(["ADMIN", "TEACHER"]),
-      teacherId: z.coerce.number().int().positive().optional(),
+      teacherId: objectIdSchema.optional(),
     }),
   })
   .superRefine((data, ctx) => {
@@ -45,7 +43,14 @@ router.post("/", (req, _res, next) => {
   }
 }, userController.create);
 
-router.delete("/:id", userController.remove);
+router.delete("/:id", (req, _res, next) => {
+  try {
+    idParamSchema.parse({ id: req.params.id });
+    next();
+  } catch (error) {
+    next(error);
+  }
+}, userController.remove);
 
 export default router;
 

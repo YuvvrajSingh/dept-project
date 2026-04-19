@@ -1,0 +1,2 @@
+MongoDB collections and indexes initialized.
+[zippp] UVICORN_RELOAD=true detected on Windows; forcing reload off for stability.

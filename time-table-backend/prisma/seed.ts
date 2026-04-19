@@ -1,5 +1,4 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Role, SubjectType } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -120,11 +119,9 @@ const CLASS_ASSIGNMENTS: Record<string, string[]> = {
 };
 
 // ── SLOTS START ──
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) throw new Error("DATABASE_URL is not set");
+if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not set");
 
-const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 const SLOTS = [
   { label: "I",   order: 1, startTime: new Date("1970-01-01T10:00:00Z"), endTime: new Date("1970-01-01T10:55:00Z") },
@@ -158,7 +155,16 @@ async function main() {
   await prisma.academicYear.deleteMany();
 
   // 2. Foundational Data
-  await prisma.slot.createMany({ data: SLOTS, skipDuplicates: true });
+  // MongoDB does not support skipDuplicates — upsert each slot by label
+  await Promise.all(
+    SLOTS.map((s) =>
+      prisma.slot.upsert({
+        where: { label: s.label },
+        update: {},
+        create: s,
+      })
+    )
+  );
   console.log("✓ Slots");
 
   const ac2025 = await prisma.academicYear.create({
@@ -194,7 +200,8 @@ async function main() {
   console.log("✓ Rooms/Labs");
 
   const adminEmail = (process.env.ADMIN_EMAIL ?? "admin@dept.local").trim().toLowerCase();
-  const passwordHash = await bcrypt.hash("changeme", 12);
+  const adminPassword = (process.env.ADMIN_PASSWORD ?? "changeme").trim();
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
   await prisma.user.create({ data: { email: adminEmail, passwordHash, role: Role.ADMIN } });
   console.log("✓ Admin User");
 
@@ -204,8 +211,29 @@ async function main() {
     return { code, name: s.name, type: s.type as SubjectType, creditHours: s.creditHours, abbreviation: ABBR[code] || code };
   });
   const uniqueSubs = Array.from(new Map(processedSubs.map(s => [s.code, s])).values());
-  await prisma.subject.createMany({ data: uniqueSubs });
-  await prisma.teacher.createMany({ data: teachersRaw });
+  await Promise.all(
+    uniqueSubs.map((subject) =>
+      prisma.subject.upsert({
+        where: { code: subject.code },
+        update: {
+          name: subject.name,
+          type: subject.type,
+          creditHours: subject.creditHours,
+          abbreviation: subject.abbreviation,
+        },
+        create: subject,
+      })
+    )
+  );
+  await Promise.all(
+    teachersRaw.map((teacher) =>
+      prisma.teacher.upsert({
+        where: { abbreviation: teacher.abbreviation },
+        update: { name: teacher.name },
+        create: teacher,
+      })
+    )
+  );
   console.log("✓ Legacy Subjects/Teachers");
 
   // 4. Mappings

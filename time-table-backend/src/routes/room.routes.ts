@@ -1,11 +1,8 @@
-import { Router } from "express";
-import { z } from "zod";
+import { Router, z, requireAdmin, idParamSchema } from "./shared";
 import { roomController } from "../controllers/room.controller";
-import { requireAdmin } from "../middleware/auth.middleware";
 
 const router = Router();
 
-const idSchema = z.object({ id: z.coerce.number().int().positive() });
 
 const createSchema = z.object({
   body: z.object({
@@ -43,7 +40,7 @@ router.post(
 
 router.put("/:id", requireAdmin, (req, _res, next) => {
   try {
-    idSchema.parse({ id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     updateSchema.parse({ body: req.body });
     next();
   } catch (error) {
@@ -53,7 +50,7 @@ router.put("/:id", requireAdmin, (req, _res, next) => {
 
 router.delete("/:id", requireAdmin, (req, _res, next) => {
   try {
-    idSchema.parse({ id: req.params.id });
+    idParamSchema.parse({ id: req.params.id });
     next();
   } catch (error) {
     next(error);

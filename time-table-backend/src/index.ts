@@ -14,8 +14,13 @@ import academicYearRoutes from "./routes/academicYear.routes";
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 import publicRoutes from "./routes/public.routes";
+import studentRoutes from "./routes/student.routes";
 import { authenticate } from "./middleware/auth.middleware";
 import { errorHandler } from "./middleware/errorHandler";
+import internalRoutes from "./routes/internal.routes";
+import attendanceRoutes from "./routes/attendance.routes";
+import studentAuthRoutes from "./routes/studentAuth.routes";
+import gradeaiRoutes from "./routes/gradeai.routes";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3001);
@@ -38,6 +43,7 @@ app.use(
   }),
 );
 app.use(cookieParser());
+app.use("/api/gradeai", gradeaiRoutes); // Moved before express.json to stream heavy files
 app.use(express.json());
 
 app.get("/health", (_req: Request, res: Response) => {
@@ -45,7 +51,9 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/auth", studentAuthRoutes);
 app.use("/api/public", publicRoutes);
+app.use("/api/internal", internalRoutes);
 app.use("/api", authenticate);
 app.use("/api/users", userRoutes);
 app.use("/api/teachers", teacherRoutes);
@@ -57,6 +65,8 @@ app.use("/api/timetable/occupancy", occupancyRoutes);
 app.use("/api/timetable", timetableRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/academic-years", academicYearRoutes);
+app.use("/api/students", studentRoutes);
+app.use("/api/attendance", attendanceRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "NOT_FOUND", message: "Route not found" });

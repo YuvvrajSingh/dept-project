@@ -13,7 +13,7 @@ export const academicYearController = {
 
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await academicYearService.getById(id);
       res.status(200).json(data);
     } catch (error) {
@@ -41,7 +41,7 @@ export const academicYearController = {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await academicYearService.update(id, req.body);
       res.status(200).json(data);
     } catch (error) {
@@ -51,7 +51,7 @@ export const academicYearController = {
 
   async updateStatus(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await academicYearService.updateStatus(id, req.body.status);
       res.status(200).json(data);
     } catch (error) {
@@ -61,7 +61,7 @@ export const academicYearController = {
 
   async activate(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await academicYearService.activate(id);
       res.status(200).json(data);
     } catch (error) {
@@ -71,8 +71,8 @@ export const academicYearController = {
 
   async clone(req: Request, res: Response, next: NextFunction) {
     try {
-      const targetId = Number(req.params.id);
-      const sourceId = Number(req.body.sourceId);
+      const targetId = req.params.id as string;
+      const sourceId = req.body.sourceId;
       const data = await academicYearService.clone(sourceId, targetId);
       res.status(200).json(data);
     } catch (error) {
@@ -82,7 +82,7 @@ export const academicYearController = {
 
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       await academicYearService.remove(id);
       res.status(204).send();
     } catch (error) {

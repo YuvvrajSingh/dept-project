@@ -146,9 +146,9 @@ function TimetableViewsInner() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
 
-  const [selectedClass, setSelectedClass] = useState<number | null>(null);
-  const [selectedTeacher, setSelectedTeacher] = useState<number | null>(null);
-  const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
+  const [selectedClass, setSelectedClass] = useState<string | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
 
   // Branch + Semester filters for class view
   const [branch, setBranch] = useState<string | null>(null);
@@ -241,10 +241,9 @@ function TimetableViewsInner() {
       setEntries([]);
 
       if (initTeacherId) {
-         const tIdNum = parseInt(initTeacherId, 10);
-         if (t.find((x: Teacher) => x.id === tIdNum)) {
+         if (t.find((x: Teacher) => x.id === initTeacherId)) {
             setViewMode("teacher");
-            loadTeacherView(tIdNum);
+            loadTeacherView(initTeacherId);
          }
       }
     }
@@ -263,7 +262,7 @@ function TimetableViewsInner() {
     }
   }, [branch, semester, classes, viewMode]);
 
-  async function loadClassView(classId: number) {
+  async function loadClassView(classId: string) {
     setSelectedClass(classId);
     setLoading(true);
     try {
@@ -280,7 +279,7 @@ function TimetableViewsInner() {
   // Define this using useCallback or leave it hoisted, but it's fine as is 
   // since it doesn't depend on much, though we're using it inside useEffect now.
   // We'll just define it inline above or disable the deps warning since it's safe.
-  async function loadTeacherView(teacherId: number) {
+  async function loadTeacherView(teacherId: string) {
     setSelectedTeacher(teacherId);
     setLoading(true);
     try {
@@ -309,7 +308,7 @@ function TimetableViewsInner() {
     }
   }
 
-  async function loadRoomView(roomId: number) {
+  async function loadRoomView(roomId: string) {
     setSelectedRoom(roomId);
     setLoading(true);
     try {
@@ -426,7 +425,7 @@ function TimetableViewsInner() {
             {viewMode === "teacher" && (
               <select
                 value={selectedTeacher ?? ""}
-                onChange={(e) => loadTeacherView(parseInt(e.target.value))}
+                onChange={(e) => loadTeacherView(e.target.value)}
                 className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-56 outline-none"
               >
                 <option value="">Select teacher...</option>
@@ -436,7 +435,7 @@ function TimetableViewsInner() {
             {viewMode === "room" && (
               <select
                 value={selectedRoom ?? ""}
-                onChange={(e) => loadRoomView(parseInt(e.target.value))}
+                onChange={(e) => loadRoomView(e.target.value)}
                 className="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2.5 text-sm font-bold w-56 outline-none"
               >
                 <option value="">Select room...</option>

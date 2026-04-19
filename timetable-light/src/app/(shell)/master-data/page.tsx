@@ -5,8 +5,9 @@ import { teacherApi, subjectApi, roomApi, labApi, classApi } from "@/lib/api";
 import { useAcademicYear } from "@/contexts/academic-year-context";
 import type { Teacher, Subject, Room, Lab, ClassSection } from "@/lib/types";
 import { SkeletonTable } from "@/components/skeleton";
+import StudentsTab from "./students-tab";
 
-type Tab = "teachers" | "subjects" | "rooms" | "labs" | "classes";
+type Tab = "teachers" | "subjects" | "rooms" | "labs" | "classes" | "students";
 
 export default function MasterDataPage() {
   const { selectedYear, isArchived, loading: yearLoading } = useAcademicYear();
@@ -21,7 +22,7 @@ export default function MasterDataPage() {
   // ── Drawer state ──
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [formData, setFormData] = useState<Record<string, string>>({});
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (yearLoading || !selectedYear) return;
@@ -106,7 +107,7 @@ export default function MasterDataPage() {
     setDrawerOpen(true);
   }
 
-  async function handleDelete(type: Tab, id: number) {
+  async function handleDelete(type: Tab, id: string) {
     if (!confirm("Delete this record?")) return;
     try {
       if (type === "teachers") await teacherApi.delete(id);
@@ -126,6 +127,7 @@ export default function MasterDataPage() {
     { key: "rooms", label: "Rooms" },
     { key: "labs", label: "Labs" },
     { key: "classes", label: "Classes" },
+    { key: "students", label: "Students" },
   ];
 
   const tabLabels: Record<Tab, string> = {
@@ -134,6 +136,7 @@ export default function MasterDataPage() {
     rooms: "Physical Rooms",
     labs: "Lab Facilities",
     classes: "Class Cohorts",
+    students: "Student Registry",
   };
 
   return (
@@ -165,6 +168,11 @@ export default function MasterDataPage() {
 
       {/* Data Table */}
       <div className="bg-surface-container-low rounded-xl overflow-hidden">
+        {/* Students tab gets its own self-contained UI */}
+        {tab === "students" ? (
+          <StudentsTab academicYearId={selectedYear?.id} />
+        ) : (
+        <div>
         <div className="flex items-center justify-between p-6 border-b border-outline-variant/10">
           <div className="flex items-center gap-4">
             <span className="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant">
@@ -328,7 +336,6 @@ export default function MasterDataPage() {
             </tbody>
           </table>
         </div>
-      </div>
 
       {/* Slide-out drawer */}
       {drawerOpen && (
@@ -439,6 +446,9 @@ export default function MasterDataPage() {
           </div>
         </div>
       )}
+      </div>
+      )}
+      </div>
     </div>
   );
 }

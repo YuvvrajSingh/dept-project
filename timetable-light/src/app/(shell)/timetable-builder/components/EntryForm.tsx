@@ -12,7 +12,7 @@ interface LabGroupInput {
 }
 
 interface EntryFormProps {
-  classSectionId: number;
+  classSectionId: string;
   initialDay?: number;
   initialSlot?: number;
   existingEntry?: SlotData | null;
@@ -20,7 +20,7 @@ interface EntryFormProps {
   allTeachers: Teacher[];
   allRooms: Room[];
   allLabs: Lab[];
-  teacherMap: Record<number, number[]>;
+  teacherMap: Record<string, string[]>;
   onSuccess: (msg: string) => void;
   onClose: () => void;
 }
@@ -101,12 +101,12 @@ export function EntryForm({
   
   const filteredTheoryTeachers = useMemo(() => {
     if (!subjectId) return [];
-    return allTeachers.filter(t => (teacherMap[t.id] || []).includes(Number(subjectId)));
+    return allTeachers.filter(t => (teacherMap[t.id] || []).includes(subjectId));
   }, [subjectId, allTeachers, teacherMap]);
 
   const getTeachersForSubject = (sId: string) => {
     if (!sId) return [];
-    return allTeachers.filter(t => (teacherMap[t.id] || []).includes(Number(sId)));
+    return allTeachers.filter(t => (teacherMap[t.id] || []).includes(sId));
   };
 
   function mapErrors(status: number, message: string) {
@@ -136,9 +136,9 @@ export function EntryForm({
           day: parseInt(day),
           slotStart: parseInt(slot),
           entryType: "LECTURE" as const,
-          subjectId: parseInt(subjectId),
-          teacherId: parseInt(teacherId),
-          roomId: parseInt(roomId),
+          subjectId,
+          teacherId,
+          roomId,
         };
         if (existingEntry && 'entryId' in existingEntry) {
           await timetableApi.updateEntry(existingEntry.entryId, payload);
@@ -152,15 +152,15 @@ export function EntryForm({
           day: parseInt(day),
           slotStart: parseInt(slot),
           entryType: "LAB" as const,
-          subjectId: 0, // DUMMY - required by old API sometimes or we skip it if backend allows
+          subjectId: "", // filled below from first lab group
           labGroups: groups.map(g => ({
             groupName: g.groupName,
-            subjectId: parseInt(g.subjectId),
-            labId: parseInt(g.labId),
-            teacherId: parseInt(g.teacherId),
+            subjectId: g.subjectId,
+            labId: g.labId,
+            teacherId: g.teacherId,
           })),
         };
-        // Fix subjectId: The timetable array might take the first group's subject as the primary one
+        // Fix subjectId: use the first lab group's subject as the primary one
         if (payload.labGroups.length > 0) {
           payload.subjectId = payload.labGroups[0].subjectId;
         }

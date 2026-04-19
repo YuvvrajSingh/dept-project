@@ -7,7 +7,7 @@ import { AppError } from "../utils/AppError";
 export type JwtPayload = {
   sub: string;
   role: Role;
-  teacherId?: number | null;
+  teacherId?: string | null;
 };
 
 function jwtSecret(): string {
@@ -41,8 +41,8 @@ function verifyAndAttachUser(req: Request): { ok: true } | { status: number; cod
   }
   try {
     const payload = jwt.verify(token, jwtSecret()) as JwtPayload;
-    const id = Number(payload.sub);
-    if (!Number.isFinite(id)) {
+    const id = payload.sub?.trim();
+    if (!id) {
       return { status: 401, code: "UNAUTHORIZED", message: "Invalid session" };
     }
     req.user = {
@@ -87,8 +87,8 @@ export function requireTeacherSelf(req: Request, res: Response, next: NextFuncti
   if (req.user?.role !== "TEACHER") {
     return res.status(403).json({ error: "FORBIDDEN", message: "Teacher access required" });
   }
-  const paramId = Number(req.params.teacherId ?? req.params.id);
-  if (!Number.isFinite(paramId) || req.user.teacherId !== paramId) {
+  const paramId = ((req.params.teacherId as string) ?? (req.params.id as string))?.trim();
+  if (!paramId || req.user.teacherId !== paramId) {
     return res.status(403).json({ error: "FORBIDDEN", message: "You can only manage your own records" });
   }
   next();
@@ -107,8 +107,8 @@ export function requireAdminOrTeacherSelf(req: Request, res: Response, next: Nex
     return next();
   }
   if (req.user?.role === "TEACHER") {
-    const paramId = Number(req.params.teacherId ?? req.params.id);
-    if (Number.isFinite(paramId) && req.user.teacherId === paramId) {
+    const paramId = ((req.params.teacherId as string) ?? (req.params.id as string))?.trim();
+    if (paramId && req.user.teacherId === paramId) {
       return next();
     }
     return res.status(403).json({ error: "FORBIDDEN", message: "You can only manage your own records" });
@@ -117,9 +117,9 @@ export function requireAdminOrTeacherSelf(req: Request, res: Response, next: Nex
 }
 
 export function signSessionToken(user: {
-  id: number;
+  id: string;
   role: Role;
-  teacherId: number | null;
+  teacherId: string | null;
 }): string {
   const expiresIn = process.env.JWT_EXPIRES_IN?.trim() || DEFAULT_JWT_EXPIRES_IN;
   const options = { expiresIn } as SignOptions;

@@ -2,7 +2,7 @@ import { TimetableEntryType } from "@prisma/client";
 import { prisma } from "../prisma/client";
 
 export const dashboardService = {
-  async getMetrics(academicYearId?: number) {
+  async getMetrics(academicYearId?: string) {
     // Resolve which academic year to use
     let resolvedYearId = academicYearId;
     if (!resolvedYearId) {
@@ -98,7 +98,7 @@ export const dashboardService = {
       include: { room: true, slot: true }
     });
     
-    const heatmap: Record<number, Record<number, { occupied: number, occupiedRoomIds: Set<number> }>> = {};
+    const heatmap: Record<number, Record<number, { occupied: number, occupiedRoomIds: Set<string> }>> = {};
     for (let d = 1; d <= 6; d++) {
       heatmap[d] = { 
         1: { occupied: 0, occupiedRoomIds: new Set() }, 

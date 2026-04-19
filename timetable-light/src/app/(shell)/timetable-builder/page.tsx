@@ -23,13 +23,13 @@ function TimetableBuilderInner() {
 
   const [branch, setBranch] = useState<string | null>(null);
   const [semester, setSemester] = useState<number | null>(null);
-  const [selectedClass, setSelectedClass] = useState<number | null>(null);
+  const [selectedClass, setSelectedClass] = useState<string | null>(null);
 
   const [matrix, setMatrix] = useState<TimetableMatrix | null>(null);
   const [occupancyMap, setOccupancyMap] = useState<any>(null);
   const [classSubjects, setClassSubjects] = useState<Subject[]>([]);
   const [draggedSubject, setDraggedSubject] = useState<Subject | null>(null);
-  const [teacherMap, setTeacherMap] = useState<Record<number, number[]>>({});
+  const [teacherMap, setTeacherMap] = useState<Record<string, string[]>>({});
 
   const [loading, setLoading] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{ day: number; slot: number; data: SlotData | null } | null>(null);
@@ -61,8 +61,7 @@ function TimetableBuilderInner() {
       setMatrix(null);
 
       if (initClassId) {
-         const classIdNum = parseInt(initClassId, 10);
-         const targetClass = c.find((cls: ClassSection) => cls.id === classIdNum);
+         const targetClass = c.find((cls: ClassSection) => cls.id === initClassId);
          if (targetClass) {
             setBranch(targetClass.branch.name);
             setSemester(targetClass.semester);
@@ -73,7 +72,7 @@ function TimetableBuilderInner() {
       }
 
       // Pre-compute teacher-subject map
-      const tMap: Record<number, number[]> = {};
+      const tMap: Record<string, string[]> = {};
       const tPromises = t.map(async (teacher) => {
         try {
           const tSubjects = await teacherApi.getSubjects(teacher.id);
@@ -144,7 +143,7 @@ function TimetableBuilderInner() {
     }
   }, [selectedClass]);
 
-  async function loadTimetable(classId: number) {
+  async function loadTimetable(classId: string) {
     setLoading(true);
     setSelectedCell(null);
     setIsEditing(false);
@@ -196,21 +195,21 @@ function TimetableBuilderInner() {
           teacherId: sourceData.teacherId!,
           roomId: sourceData.roomId!,
         };
-        await timetableApi.updateEntry(sourceData.entryId as number, payload);
+        await timetableApi.updateEntry(sourceData.entryId, payload);
       } else if (sourceData.type === "LAB") {
         const payload = {
           classSectionId: matrix.classSectionId,
           day: targetDay,
           slotStart: targetSlot,
           entryType: "LAB" as const,
-          subjectId: Object.values(sourceData.groups)[0]?.subjectId as number,
+          subjectId: Object.values(sourceData.groups)[0]?.subjectId,
           labGroups: Object.entries(sourceData.groups).map(([g, info]) => ({
             groupName: g,
             labId: info.labId,
             teacherId: info.teacherId,
           })),
         };
-        await timetableApi.updateEntry(sourceData.entryId as number, payload);
+        await timetableApi.updateEntry(sourceData.entryId, payload);
       }
       
       await Promise.all([
@@ -283,8 +282,8 @@ function TimetableBuilderInner() {
   // Calculate Unassigned Subjects
   const unassignedSubjects = useMemo(() => {
      if (!matrix) return [];
-     const required = new Map<number, number>();
-     const assigned = new Map<number, number>();
+     const required = new Map<string, number>();
+     const assigned = new Map<string, number>();
 
      // initialize required
      classSubjects.forEach(s => {

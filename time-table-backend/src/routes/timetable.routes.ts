@@ -1,37 +1,25 @@
-import { Router } from "express";
-import { z } from "zod";
+import { Router, z, authenticate, requireAdmin, idParamSchema, objectIdSchema } from "./shared";
 import { timetableController } from "../controllers/timetable.controller";
-import { requireAdmin, authenticate } from "../middleware/auth.middleware";
 
 const router = Router();
 
-const idSchema = z.object({ id: z.coerce.number().int().positive() });
-const classSectionParamSchema = z.object({
-  classSectionId: z.coerce.number().int().positive(),
-});
-const teacherParamSchema = z.object({
-  teacherId: z.coerce.number().int().positive(),
-});
-const roomParamSchema = z.object({
-  roomId: z.coerce.number().int().positive(),
-});
 
 const theorySchema = z.object({
   body: z.object({
-    classSectionId: z.coerce.number().int().positive(),
+    classSectionId: objectIdSchema,
     day: z.coerce.number().int().min(1).max(6),
     slotStart: z.coerce.number().int().min(1).max(6),
     slotEnd: z.coerce.number().int().min(1).max(6).optional(),
     entryType: z.literal("LECTURE"),
-    subjectId: z.coerce.number().int().positive(),
-    teacherId: z.coerce.number().int().positive(),
-    roomId: z.coerce.number().int().positive(),
+    subjectId: objectIdSchema,
+    teacherId: objectIdSchema,
+    roomId: objectIdSchema,
   }),
 });
 
 const labSchema = z.object({
   body: z.object({
-    classSectionId: z.coerce.number().int().positive(),
+    classSectionId: objectIdSchema,
     day: z.coerce.number().int().min(1).max(6),
     slotStart: z.coerce.number().int().min(1).max(6),
     slotEnd: z.coerce.number().int().min(1).max(6).optional(),
@@ -40,9 +28,9 @@ const labSchema = z.object({
       .array(
         z.object({
           groupName: z.enum(["A1", "A2", "A3"]),
-          subjectId: z.coerce.number().int().positive(),
-          labId: z.coerce.number().int().positive(),
-          teacherId: z.coerce.number().int().positive(),
+          subjectId: objectIdSchema,
+          labId: objectIdSchema,
+          teacherId: objectIdSchema,
         }),
       )
       .min(1)
@@ -72,7 +60,7 @@ router.put(
   requireAdmin,
   (req, _res, next) => {
     try {
-      idSchema.parse({ id: req.params.id });
+      idParamSchema.parse({ id: req.params.id });
       updateEntrySchema.parse({ body: req.body });
       next();
     } catch (error) {
@@ -87,7 +75,7 @@ router.delete(
   requireAdmin,
   (req, _res, next) => {
     try {
-      idSchema.parse({ id: req.params.id });
+      idParamSchema.parse({ id: req.params.id });
       next();
     } catch (error) {
       next(error);
@@ -101,7 +89,7 @@ router.post(
   authenticate,
   (req, _res, next) => {
     try {
-      idSchema.parse({ id: req.params.id });
+      idParamSchema.parse({ id: req.params.id });
       // reason is optional
       z.object({ reason: z.string().optional() }).parse({ reason: req.body.reason });
       next();
@@ -117,7 +105,7 @@ router.post(
   authenticate,
   (req, _res, next) => {
     try {
-      idSchema.parse({ id: req.params.id });
+      idParamSchema.parse({ id: req.params.id });
       next();
     } catch (error) {
       next(error);
@@ -130,7 +118,7 @@ router.get(
   "/teacher/:teacherId",
   (req, _res, next) => {
     try {
-      teacherParamSchema.parse({ teacherId: req.params.teacherId });
+      z.object({ teacherId: objectIdSchema }).parse({ teacherId: req.params.teacherId });
       next();
     } catch (error) {
       next(error);
@@ -143,7 +131,7 @@ router.get(
   "/room/:roomId",
   (req, _res, next) => {
     try {
-      roomParamSchema.parse({ roomId: req.params.roomId });
+      z.object({ roomId: objectIdSchema }).parse({ roomId: req.params.roomId });
       next();
     } catch (error) {
       next(error);
@@ -168,7 +156,7 @@ router.get(
   "/:classSectionId",
   (req, _res, next) => {
     try {
-      classSectionParamSchema.parse({
+      z.object({ classSectionId: objectIdSchema }).parse({
         classSectionId: req.params.classSectionId,
       });
       next();
@@ -183,7 +171,7 @@ router.get(
   "/:classSectionId/export/pdf",
   (req, _res, next) => {
     try {
-      classSectionParamSchema.parse({
+      z.object({ classSectionId: objectIdSchema }).parse({
         classSectionId: req.params.classSectionId,
       });
       next();
@@ -199,7 +187,7 @@ router.post(
   requireAdmin,
   (req, _res, next) => {
     try {
-      classSectionParamSchema.parse({
+      z.object({ classSectionId: objectIdSchema }).parse({
         classSectionId: req.params.classSectionId,
       });
       next();
@@ -215,7 +203,7 @@ router.delete(
   requireAdmin,
   (req, _res, next) => {
     try {
-      classSectionParamSchema.parse({
+      z.object({ classSectionId: objectIdSchema }).parse({
         classSectionId: req.params.classSectionId,
       });
       next();

@@ -1,12 +1,12 @@
 // ── Domain Types matching the backend Prisma schema ──
 
 export interface Branch {
-  id: number;
+  id: string;
   name: string;
 }
 
 export interface AcademicYear {
-  id: number;
+  id: string;
   label: string;
   startYear: number;
   endYear: number;
@@ -18,9 +18,9 @@ export interface AcademicYear {
 }
 
 export interface ClassSection {
-  id: number;
-  academicYearId: number;
-  branchId: number;
+  id: string;
+  academicYearId: string;
+  branchId: string;
   year: number;
   semester: number;
   branch: Branch;
@@ -28,7 +28,7 @@ export interface ClassSection {
 }
 
 export interface Subject {
-  id: number;
+  id: string;
   code: string;
   name: string;
   abbreviation: string;
@@ -38,59 +38,59 @@ export interface Subject {
 }
 
 export interface Teacher {
-  id: number;
+  id: string;
   name: string;
   abbreviation: string;
   email?: string;
 }
 
 export interface TeacherSubject {
-  id: number;
-  teacherId: number;
-  subjectId: number;
+  id: string;
+  teacherId: string;
+  subjectId: string;
   teacher?: Teacher;
   subject?: Subject;
 }
 
 export interface ClassSubject {
-  id: number;
-  classSectionId: number;
-  subjectId: number;
+  id: string;
+  classSectionId: string;
+  subjectId: string;
   classSection?: ClassSection;
   subject?: Subject;
 }
 
 export interface Room {
-  id: number;
+  id: string;
   name: string;
   capacity: number;
 }
 
 export interface Lab {
-  id: number;
+  id: string;
   name: string;
   capacity: number;
 }
 
 export interface LabGroupEntry {
-  id: number;
+  id: string;
   groupName: string; // "A1" | "A2" | "A3"
-  labId: number;
-  teacherId: number;
+  labId: string;
+  teacherId: string;
   lab?: Lab;
   teacher?: Teacher;
 }
 
 export interface TimetableEntry {
-  id: number;
-  classSectionId: number;
+  id: string;
+  classSectionId: string;
   day: number;
-  slotId: number;
+  slotId: string;
   slot: { order: number; label: string; startTime: string; endTime: string };
   entryType: "LECTURE" | "LAB";
-  subjectId: number;
-  teacherId?: number;
-  roomId?: number;
+  subjectId: string;
+  teacherId?: string;
+  roomId?: string;
   subject?: Subject;
   teacher?: Teacher;
   room?: Room;
@@ -102,10 +102,10 @@ export interface TimetableEntry {
 
 export interface TheorySlot {
   type: "THEORY";
-  entryId: number;
-  subjectId: number;
-  teacherId: number | null;
-  roomId: number | null;
+  entryId: string;
+  subjectId: string;
+  teacherId: string | null;
+  roomId: string | null;
   subjectCode: string;
   subjectName: string;
   teacherAbbr: string | null;
@@ -114,13 +114,13 @@ export interface TheorySlot {
 
 export interface LabSlot {
   type: "LAB";
-  entryId: number;
+  entryId: string;
   groups: Record<string, {
-    subjectId: number | null;
+    subjectId: string | null;
     subjectCode: string;
     subjectName: string;
-    labId: number;
-    teacherId: number;
+    labId: string;
+    teacherId: string;
     lab: string;
     teacher: string;
   }>;
@@ -128,7 +128,7 @@ export interface LabSlot {
 
 export interface LabContinuationSlot {
   type: "LAB_CONTINUATION";
-  mergedWith: number;
+  mergedWith: string;
 }
 
 export type SlotData = TheorySlot | LabSlot | LabContinuationSlot | null;
@@ -139,7 +139,7 @@ export interface DaySchedule {
 }
 
 export interface TimetableMatrix {
-  classSectionId: number;
+  classSectionId: string;
   branch: string;
   year: number;
   timetable: Record<string, DaySchedule>;

@@ -2,9 +2,10 @@ import { PrismaClient, TimetableEntryType, AcademicYearStatus, NotificationLogTy
 import { prisma } from "../prisma/client";
 import { AppError } from "../utils/AppError";
 import { LAB_GROUPS } from "../utils/timetableConstants";
+import { getParitySemesterList } from "../utils/semesterParity";
 
 export const autoSchedulerService = {
-  async generateTimetable(classSectionId: number) {
+  async generateTimetable(classSectionId: string) {
     // 1. Fetch class data and requirements
     const classSection = await prisma.classSection.findUnique({
       where: { id: classSectionId },
@@ -32,9 +33,9 @@ export const autoSchedulerService = {
     // The scheduler works internally with slot order integers (1–6), same as before.
     // When writing to DB, it uses slotOrderToId[order] to get the FK.
     const allSlots = await prisma.slot.findMany({ orderBy: { order: "asc" } });
-    const slotOrderToId = new Map<number, number>(allSlots.map((s) => [s.order, s.id]));
+    const slotOrderToId = new Map<number, string>(allSlots.map((s) => [s.order, s.id]));
 
-    const resolveSlotId = (order: number): number => {
+    const resolveSlotId = (order: number): string => {
       const id = slotOrderToId.get(order);
       if (!id) throw new AppError(`Slot order ${order} not found in DB`, 500, "INTERNAL_ERROR");
       return id;
@@ -46,7 +47,7 @@ export const autoSchedulerService = {
     const allLabs = await prisma.lab.findMany();
 
     // subjectId → available teacherIds
-    const teacherMap = new Map<number, number[]>();
+    const teacherMap = new Map<string, string[]>();
     for (const t of allTeachers) {
       for (const ts of t.teacherSubjects) {
         if (!teacherMap.has(ts.subjectId)) teacherMap.set(ts.subjectId, []);
@@ -55,9 +56,9 @@ export const autoSchedulerService = {
     }
 
     // 4. Global Occupancy Matrices indexed by [id][day][slotOrder]
-    const teacherOcc: Record<number, Record<number, Record<number, boolean>>> = {};
-    const roomOcc: Record<number, Record<number, Record<number, boolean>>> = {};
-    const labOcc: Record<number, Record<number, Record<number, boolean>>> = {};
+    const teacherOcc: Record<string, Record<number, Record<number, boolean>>> = {};
+    const roomOcc: Record<string, Record<number, Record<number, boolean>>> = {};
+    const labOcc: Record<string, Record<number, Record<number, boolean>>> = {};
 
     for (const t of allTeachers) teacherOcc[t.id] = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{}, 6:{} };
     for (const r of allRooms) roomOcc[r.id] = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{}, 6:{} };
@@ -68,7 +69,12 @@ export const autoSchedulerService = {
     const existingEntries = await prisma.timetableEntry.findMany({
       where: {
         classSectionId: { not: classSectionId },
-        classSection: { academicYearId },
+        classSection: {
+          academicYearId,
+          semester: {
+            in: getParitySemesterList(classSection.semester),
+          },
+        },
       },
       include: { slot: true, labGroups: true },
     });
@@ -113,14 +119,14 @@ export const autoSchedulerService = {
 
     // Local occupancy tracker for this class
     const classOcc: Record<number, Record<number, boolean>> = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{}, 6:{} };
-    const subjectsToday: Record<number, Record<number, number>> = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{}, 6:{} };
+    const subjectsToday: Record<number, Record<string, number>> = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{}, 6:{} };
 
     const validLabStarts = [1, 2, 4, 5]; // LAB can start at these orders (needs order+1 to exist)
 
     const findFreeRoom = (d: number, s: number) =>
       allRooms.find((r) => !roomOcc[r.id][d][s]);
 
-    const findFreeTeacher = (subjectId: number, d: number, s: number) => {
+    const findFreeTeacher = (subjectId: string, d: number, s: number) => {
       const candidates = teacherMap.get(subjectId) || [];
       return candidates.find((tId) => !teacherOcc[tId][d][s]);
     };
@@ -133,10 +139,10 @@ export const autoSchedulerService = {
 
           // Attempt LAB placement
           if (!relaxed && validLabStarts.includes(s) && labNeeds.length > 0 && !classOcc[d][s + 1]) {
-            const selectedNeeds = [];
+            const selectedNeeds: any[] = [];
             const usedGroups = new Set<string>();
-            const assignedLabs = new Set<number>();
-            const assignedTeachers = new Set<number>();
+            const assignedLabs = new Set<string>();
+            const assignedTeachers = new Set<string>();
 
             for (let i = 0; i < labNeeds.length; i++) {
               const need = labNeeds[i];

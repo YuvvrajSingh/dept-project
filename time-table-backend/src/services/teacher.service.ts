@@ -10,7 +10,7 @@ const teacherInclude = {
   },
 } satisfies Prisma.TeacherInclude;
 
-const assertTeacherExists = async (teacherId: number) => {
+const assertTeacherExists = async (teacherId: string) => {
   const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } });
   if (!teacher) {
     throw new AppError("Teacher not found", 404, "NOT_FOUND");
@@ -25,7 +25,7 @@ export const teacherService = {
     });
   },
 
-  async getTeacherById(id: number) {
+  async getTeacherById(id: string) {
     const teacher = await prisma.teacher.findUnique({
       where: { id },
       include: teacherInclude,
@@ -42,19 +42,19 @@ export const teacherService = {
     return prisma.teacher.create({ data });
   },
 
-  async updateTeacher(id: number, data: { name?: string; abbreviation?: string }) {
+  async updateTeacher(id: string, data: { name?: string; abbreviation?: string }) {
     await assertTeacherExists(id);
     return prisma.teacher.update({ where: { id }, data });
   },
 
-  async deleteTeacher(id: number) {
+  async deleteTeacher(id: string) {
     await assertTeacherExists(id);
     // Hard delete is blocked by Restrict on LabGroupEntry if the teacher has active lab entries.
     // Use deactivateTeacher for safe archival instead.
     await prisma.teacher.delete({ where: { id } });
   },
 
-  async deactivateTeacher(id: number) {
+  async deactivateTeacher(id: string) {
     await assertTeacherExists(id);
     const teacher = await prisma.teacher.update({ where: { id }, data: { isActive: false } });
     await prisma.user.updateMany({
@@ -64,7 +64,7 @@ export const teacherService = {
     return teacher;
   },
 
-  async reactivateTeacher(id: number) {
+  async reactivateTeacher(id: string) {
     await assertTeacherExists(id);
     const teacher = await prisma.teacher.update({ where: { id }, data: { isActive: true } });
     await prisma.user.updateMany({
@@ -74,7 +74,7 @@ export const teacherService = {
     return teacher;
   },
 
-  async assignSubject(teacherId: number, subjectId: number) {
+  async assignSubject(teacherId: string, subjectId: string) {
     await assertTeacherExists(teacherId);
 
     const subject = await prisma.subject.findUnique({ where: { id: subjectId } });
@@ -98,7 +98,7 @@ export const teacherService = {
     });
   },
 
-  async removeSubject(teacherId: number, subjectId: number) {
+  async removeSubject(teacherId: string, subjectId: string) {
     await assertTeacherExists(teacherId);
 
     const existing = await prisma.teacherSubject.findUnique({
@@ -112,7 +112,7 @@ export const teacherService = {
     await prisma.teacherSubject.delete({ where: { id: existing.id } });
   },
 
-  async getTeacherSubjects(teacherId: number) {
+  async getTeacherSubjects(teacherId: string) {
     await assertTeacherExists(teacherId);
 
     return prisma.teacherSubject.findMany({
@@ -122,7 +122,7 @@ export const teacherService = {
     });
   },
 
-  async getTeacherSchedule(teacherId: number) {
+  async getTeacherSchedule(teacherId: string) {
     await assertTeacherExists(teacherId);
 
     return prisma.timetableEntry.findMany({

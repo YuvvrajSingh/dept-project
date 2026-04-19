@@ -18,7 +18,7 @@ function fileToken(value: string): string {
 }
 
 export const pdfService = {
-  async generateTimetablePdf(classSectionId: number): Promise<TimetablePdfResult> {
+  async generateTimetablePdf(classSectionId: string): Promise<TimetablePdfResult> {
     // 1. Fetch data
     const data = await timetableService.getClassTimetable(classSectionId);
     

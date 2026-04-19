@@ -12,7 +12,7 @@ export type CreateUserInput = {
   email: string;
   password: string;
   role: Role;
-  teacherId?: number;
+  teacherId?: string;
 };
 
 export const userService = {
@@ -32,7 +32,7 @@ export const userService = {
     }
 
     if (input.role === "TEACHER") {
-      const teacherId = input.teacherId as number;
+      const teacherId = input.teacherId as string;
       const linked = await prisma.user.findUnique({ where: { teacherId } });
       if (linked) {
         throw new AppError("This teacher already has a login account", 409, "CONFLICT");
@@ -99,7 +99,7 @@ export const userService = {
     });
   },
 
-  async deleteUser(id: number) {
+  async deleteUser(id: string) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new AppError("User not found", 404, "NOT_FOUND");

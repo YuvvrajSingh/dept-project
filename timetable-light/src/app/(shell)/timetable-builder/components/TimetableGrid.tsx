@@ -9,7 +9,7 @@ interface TimetableGridProps {
   subjects?: Subject[];
   draggedSubject?: Subject | null;
   occupancyMap?: any;
-  teacherMap?: Record<number, number[]>;
+  teacherMap?: Record<string, string[]>;
   rooms?: Room[];
   labs?: any[];
   onCellClick?: (day: number, slot: number, data: SlotData) => void;
@@ -111,14 +111,14 @@ export function TimetableGrid({
      if (!isBusy) {
        if (draggedSubject) {
        // 1. Check Teacher availability for sidebar item
-       const possibleTeacherIds = Object.keys(teacherMap || {}).filter(tId => teacherMap![Number(tId)].includes(draggedSubject.id));
+       const possibleTeacherIds = Object.keys(teacherMap || {}).filter(tId => teacherMap![tId].includes(draggedSubject.id));
        
        if (possibleTeacherIds.length === 0) {
           isBusy = true;
        } else {
           let allBusy = true;
           for (const tId of possibleTeacherIds) {
-             const busySlotsForDay = occupancyMap?.teachers?.[Number(tId)]?.[day] || [];
+             const busySlotsForDay = occupancyMap?.teachers?.[tId]?.[day] || [];
              const slotsToCheck = draggedSubject.type === "LAB" ? [slot, slot + 1] : [slot];
              const overlaps = slotsToCheck.some(s => busySlotsForDay.includes(s));
              if (!overlaps) {

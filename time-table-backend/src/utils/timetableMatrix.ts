@@ -25,10 +25,10 @@ type TimetableEntryWithRelations = TimetableEntry & {
 
 type TheoryCell = {
   type: "THEORY";
-  entryId: number;
-  subjectId: number;
-  teacherId: number | null;
-  roomId: number | null;
+  entryId: string;
+  subjectId: string;
+  teacherId: string | null;
+  roomId: string | null;
   subjectCode: string;
   subjectName: string;
   teacherAbbr: string | null;
@@ -37,15 +37,15 @@ type TheoryCell = {
 
 type LabCell = {
   type: "LAB";
-  entryId: number;
+  entryId: string;
   groups: Record<
     string,
     {
-      subjectId: number;
+      subjectId: string;
       subjectCode: string;
       subjectName: string;
-      labId: number;
-      teacherId: number;
+      labId: string;
+      teacherId: string;
       lab: string;
       teacher: string;
     }
@@ -54,7 +54,7 @@ type LabCell = {
 
 type LabContinuationCell = {
   type: "LAB_CONTINUATION";
-  entryId: number;
+  entryId: string;
 };
 
 type MatrixCell = TheoryCell | LabCell | LabContinuationCell | null;
@@ -113,11 +113,11 @@ export function buildMatrix(
       Record<
         string,
         {
-          subjectId: number;
+          subjectId: string;
           subjectCode: string;
           subjectName: string;
-          labId: number;
-          teacherId: number;
+          labId: string;
+          teacherId: string;
           lab: string;
           teacher: string;
         }

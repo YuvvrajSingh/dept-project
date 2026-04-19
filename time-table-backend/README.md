@@ -21,7 +21,7 @@ This service powers a conflict-aware academic timetable system for department ad
 
 - Node.js + TypeScript
 - Express 5
-- Prisma + PostgreSQL (`@prisma/adapter-pg`)
+- Prisma + MongoDB
 - JWT auth in HTTP-only cookie
 - Zod for request validation
 - Puppeteer for PDF export
@@ -39,19 +39,21 @@ npm install
 Create `time-table-backend/.env` from `.env.example` and fill values:
 
 ```env
-DATABASE_URL="postgresql://postgres:password@localhost:5432/department_timetable?schema=public"
+DATABASE_URL="mongodb+srv://<user>:<password>@<cluster-host>/department_timetable?retryWrites=true&w=majority"
 PORT=3001
 JWT_SECRET=change-me-to-a-long-random-string
 JWT_EXPIRES_IN=7d
+GRADEAI_API_URL=http://127.0.0.1:8000
+GRADEAI_SHARED_SECRET=replace-with-a-long-random-secret
 ADMIN_EMAIL=admin@dept.local
 ADMIN_PASSWORD=changeme
 # CORS_ORIGIN=http://localhost:3000
 ```
 
-### 3. Run migrations and seed
+### 3. Sync schema and seed
 
 ```bash
-npm run db:migrate
+npm run db:push
 npm run db:seed
 ```
 
@@ -69,7 +71,8 @@ API starts on `http://localhost:3001`.
 npm run dev           # Start backend in dev mode (tsx)
 npm run build         # Compile TypeScript -> dist/
 npm run start         # Run compiled server
-npm run db:migrate    # Prisma migrate dev
+npm run db:push       # Prisma db push (MongoDB)
+npm run db:migrate    # Alias to db:push
 npm run db:seed       # Seed demo data
 npm run data:overview # Generate DATA_OVERVIEW.md
 npm run data:populate # Populate extended academic dataset
@@ -79,10 +82,12 @@ npm run data:populate # Populate extended academic dataset
 
 | Variable | Required | Default | Notes |
 |---|---:|---|---|
-| `DATABASE_URL` | Yes | - | PostgreSQL connection string |
+| `DATABASE_URL` | Yes | - | MongoDB connection string |
 | `PORT` | No | `3001` | Express port |
 | `JWT_SECRET` | Yes | - | Must match frontend `JWT_SECRET` |
 | `JWT_EXPIRES_IN` | No | `7d` | Session cookie/token expiry |
+| `GRADEAI_API_URL` | Yes | - | URL of zippp/timetable-ai-service |
+| `GRADEAI_SHARED_SECRET` | Yes | - | Shared secret matching zippp service |
 | `CORS_ORIGIN` | No | localhost defaults | Comma-separated allowed origins |
 | `ADMIN_EMAIL` | No | `admin@dept.local` | Used only during seed |
 | `ADMIN_PASSWORD` | No | `changeme` | Used only during seed |
@@ -194,7 +199,7 @@ Detailed design docs: `docs/algo/`.
 - Fix: keep same secret in both apps.
 
 2. Missing `Slot` seed data breaks timetable writes.
-- Fix: run migrations and seed before creating entries.
+- Fix: run `npm run db:push` and `npm run db:seed` before creating entries.
 
 3. `npm run db:seed` is destructive for existing data.
 - Fix: use only in local/dev unless intended.

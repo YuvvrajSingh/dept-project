@@ -13,8 +13,8 @@ export default function SettingsPage() {
   const [yearsLoading, setYearsLoading] = useState(true);
   const [newStartYear, setNewStartYear] = useState("");
   const [creating, setCreating] = useState(false);
-  const [cloneSourceId, setCloneSourceId] = useState<number | null>(null);
-  const [cloneTargetId, setCloneTargetId] = useState<number | null>(null);
+  const [cloneSourceId, setCloneSourceId] = useState<string | null>(null);
+  const [cloneTargetId, setCloneTargetId] = useState<string | null>(null);
   const [cloning, setCloning] = useState(false);
   const [cloneResult, setCloneResult] = useState<string | null>(null);
   const [yearMsg, setYearMsg] = useState("");
@@ -67,7 +67,7 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleStatusChange(yearId: number, status: "DRAFT" | "ACTIVE" | "ARCHIVED") {
+  async function handleStatusChange(yearId: string, status: "DRAFT" | "ACTIVE" | "ARCHIVED") {
     try {
       if (status === "ACTIVE") {
         await academicYearApi.activate(yearId);
@@ -81,7 +81,7 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleDeleteYear(yearId: number) {
+  async function handleDeleteYear(yearId: string) {
     if (!confirm("Delete this academic year? This cannot be undone.")) return;
     try {
       await academicYearApi.delete(yearId);
@@ -305,7 +305,7 @@ export default function SettingsPage() {
                 <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider block">Source Year</label>
                 <select
                   value={cloneSourceId ?? ""}
-                  onChange={(e) => setCloneSourceId(e.target.value ? Number(e.target.value) : null)}
+                  onChange={(e) => setCloneSourceId(e.target.value || null)}
                   className="w-full bg-surface-container border-none rounded-lg px-4 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-secondary/30"
                 >
                   <option value="">Select source...</option>
@@ -317,7 +317,7 @@ export default function SettingsPage() {
                 <label className="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider block">Target Year</label>
                 <select
                   value={cloneTargetId ?? ""}
-                  onChange={(e) => setCloneTargetId(e.target.value ? Number(e.target.value) : null)}
+                  onChange={(e) => setCloneTargetId(e.target.value || null)}
                   className="w-full bg-surface-container border-none rounded-lg px-4 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-secondary/30"
                 >
                   <option value="">Select target...</option>

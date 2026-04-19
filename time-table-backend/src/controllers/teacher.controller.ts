@@ -28,7 +28,7 @@ export const teacherController = {
 
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await teacherService.getTeacherById(id);
       res.status(200).json(data);
     } catch (error) {
@@ -47,7 +47,7 @@ export const teacherController = {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       const data = await teacherService.updateTeacher(id, req.body);
       res.status(200).json(data);
     } catch (error) {
@@ -57,7 +57,7 @@ export const teacherController = {
 
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
-      const id = Number(req.params.id);
+      const id = req.params.id as string;
       await teacherService.deleteTeacher(id);
       res.status(204).send();
     } catch (error) {
@@ -67,8 +67,8 @@ export const teacherController = {
 
   async assignSubject(req: Request, res: Response, next: NextFunction) {
     try {
-      const teacherId = Number(req.params.id);
-      const { subjectId } = req.body as { subjectId: number };
+      const teacherId = req.params.id as string;
+      const { subjectId } = req.body as { subjectId: string };
       const data = await teacherService.assignSubject(teacherId, subjectId);
       res.status(201).json(data);
     } catch (error) {
@@ -78,8 +78,8 @@ export const teacherController = {
 
   async removeSubject(req: Request, res: Response, next: NextFunction) {
     try {
-      const teacherId = Number(req.params.id);
-      const subjectId = Number(req.params.subjectId);
+      const teacherId = req.params.id as string;
+      const subjectId = req.params.subjectId as string;
       await teacherService.removeSubject(teacherId, subjectId);
       res.status(204).send();
     } catch (error) {
@@ -89,7 +89,7 @@ export const teacherController = {
 
   async getSubjects(req: Request, res: Response, next: NextFunction) {
     try {
-      const teacherId = Number(req.params.id);
+      const teacherId = req.params.id as string;
       const data = await teacherService.getTeacherSubjects(teacherId);
       res.status(200).json(data);
     } catch (error) {
@@ -99,7 +99,7 @@ export const teacherController = {
 
   async getSchedule(req: Request, res: Response, next: NextFunction) {
     try {
-      const teacherId = Number(req.params.id);
+      const teacherId = req.params.id as string;
       const data = await teacherService.getTeacherSchedule(teacherId);
       res.status(200).json(data);
     } catch (error) {
