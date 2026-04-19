@@ -28,6 +28,7 @@ type QuestionDetail = {
   feedback?: string;
   extracted_ocr_text?: string;
   model_answer?: string;
+  similarity_score?: number | null;
 };
 
 type TeacherExam = {
@@ -37,6 +38,7 @@ type TeacherExam = {
   student_count?: number;
   pending_count?: number;
   q_count?: number;
+  results_published?: boolean;
 };
 
 // ─── Grade Badge ─────────────────────────────────────────────────────────────
@@ -88,6 +90,8 @@ export default function ResultsDashboardPage() {
   const [overrideMarks, setOverrideMarks] = useState("");
   const [overriding, setOverriding] = useState(false);
   const [overrideMsg, setOverrideMsg] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishMsg, setPublishMsg] = useState<string | null>(null);
 
   useEffect(() => {
     void fetchExamsAndPrefill();
@@ -194,6 +198,33 @@ export default function ResultsDashboardPage() {
     }
   }
 
+  async function publishResults() {
+    const resolvedExamId = examId.trim();
+    if (!resolvedExamId) return;
+
+    setPublishing(true);
+    setPublishMsg(null);
+    try {
+      const res = await fetch(`/api/gradeai/teacher/publish-results/${resolvedExamId}`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to publish results");
+
+      setExams((prev) =>
+        prev.map((exam) =>
+          String(exam._id) === resolvedExamId
+            ? { ...exam, results_published: true }
+            : exam
+        )
+      );
+      setPublishMsg("Results published. Students can now view this exam.");
+    } catch (e: any) {
+      setPublishMsg(e.message || "Could not publish results");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   const gradeColours: Record<string, string> = {
     A: "text-green-400",
     B: "text-blue-400",
@@ -268,10 +299,27 @@ export default function ResultsDashboardPage() {
       </div>
 
       {selectedExamMeta && (
-        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
-          <span className="px-2 py-1 rounded bg-surface-container">Questions: {selectedExamMeta.q_count ?? 0}</span>
-          <span className="px-2 py-1 rounded bg-surface-container">Graded Students: {selectedExamMeta.student_count ?? 0}</span>
-          <span className="px-2 py-1 rounded bg-surface-container">Pending Queue: {selectedExamMeta.pending_count ?? 0}</span>
+        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 space-y-3">
+          <div className="flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+            <span className="px-2 py-1 rounded bg-surface-container">Questions: {selectedExamMeta.q_count ?? 0}</span>
+            <span className="px-2 py-1 rounded bg-surface-container">Graded Students: {selectedExamMeta.student_count ?? 0}</span>
+            <span className="px-2 py-1 rounded bg-surface-container">Pending Queue: {selectedExamMeta.pending_count ?? 0}</span>
+            <span className="px-2 py-1 rounded bg-surface-container">
+              Status: {selectedExamMeta.results_published ? "Published" : "Not Published"}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => void publishResults()}
+              disabled={publishing || !examId || !!selectedExamMeta.results_published}
+              className="bg-secondary text-on-secondary px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50"
+            >
+              {publishing ? "Publishing..." : selectedExamMeta.results_published ? "Published" : "Publish Results"}
+            </button>
+            {publishMsg && (
+              <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">{publishMsg}</span>
+            )}
+          </div>
         </div>
       )}
 
@@ -443,12 +491,17 @@ export default function ResultsDashboardPage() {
                         )}
 
                         {/* OCR Text */}
-                        {d.extracted_ocr_text && (
-                          <div>
-                            <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">OCR Extracted Text</p>
-                            <p className="text-xs text-on-surface-variant leading-relaxed bg-surface-variant/30 rounded-lg p-2 font-mono">{d.extracted_ocr_text}</p>
-                          </div>
-                        )}
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">OCR Extracted Text</p>
+                          <p className="text-xs text-on-surface-variant leading-relaxed bg-surface-variant/30 rounded-lg p-2 font-mono">{d.extracted_ocr_text || "[OCR_UNREADABLE] No readable text extracted from image."}</p>
+                        </div>
+
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Semantic Similarity</p>
+                          <p className="text-xs text-on-surface-variant leading-relaxed bg-surface-variant/20 rounded-lg p-2 font-mono">
+                            {typeof d.similarity_score === "number" ? `${d.similarity_score}%` : "N/A"}
+                          </p>
+                        </div>
 
                         {/* AI Feedback */}
                         {d.feedback && (

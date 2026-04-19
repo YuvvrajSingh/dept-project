@@ -50,6 +50,8 @@ export default function TeacherMidtermPage() {
   // Assembly Line
   const [selectedExam, setSelectedExam] = useState<ActiveExam | null>(null);
   const [rollNumber, setRollNumber] = useState("");
+  const [rollQueue, setRollQueue] = useState<string[]>([]);
+  const [loadingRollQueue, setLoadingRollQueue] = useState(false);
   const [questionNumbers, setQuestionNumbers] = useState<number[]>([1]);
   const [questionUploads, setQuestionUploads] = useState<Record<number, File[]>>({ 1: [] });
   const [uploading, setUploading] = useState(false);
@@ -64,12 +66,68 @@ export default function TeacherMidtermPage() {
 
   function resetAssemblyForm(exam: ActiveExam | null = selectedExam) {
     setRollNumber("");
+    setRollQueue([]);
 
     const parsedCount = Number(exam?.q_count ?? 0);
     const questionCount = Number.isFinite(parsedCount) && parsedCount > 0 ? parsedCount : 0;
     const slots = Array.from({ length: questionCount }, (_, i) => i + 1);
     setQuestionNumbers(slots);
     setQuestionUploads(Object.fromEntries(slots.map((q) => [q, []])));
+  }
+
+  async function loadRollQueue(exam: ActiveExam) {
+    const examId = String(exam._id).trim();
+    if (!examId) return;
+
+    setLoadingRollQueue(true);
+    try {
+      const [attendanceRes, submissionsRes] = await Promise.all([
+        fetch(`/api/gradeai/teacher/get_attendance/${examId}`),
+        fetch(`/api/gradeai/teacher/get_submissions/${examId}`),
+      ]);
+
+      const attendanceData = attendanceRes.ok ? await attendanceRes.json() : {};
+      const submissionsData = submissionsRes.ok ? await submissionsRes.json() : {};
+
+      const studentRows = Array.isArray(attendanceData?.students) ? attendanceData.students : [];
+      const submittedRows = Array.isArray(submissionsData?.submitted_rolls) ? submissionsData.submitted_rolls : [];
+
+      const studentRolls = studentRows
+        .map((s: any) => {
+          if (typeof s === "string") return s.trim().toUpperCase();
+          return String(s?.roll_number ?? s?.rollNumber ?? s?.RollNo ?? s?.rollNo ?? "").trim().toUpperCase();
+        })
+        .filter((r: string) => Boolean(r));
+
+      const submittedSet = new Set(
+        submittedRows
+          .map((r: any) => String(r ?? "").trim().toUpperCase())
+          .filter((r: string) => Boolean(r))
+      );
+
+      const pending = studentRolls.filter((r: string, idx: number) => studentRolls.indexOf(r) === idx && !submittedSet.has(r));
+
+      setRollQueue(pending);
+      setRollNumber(pending[0] || "");
+    } catch (err) {
+      console.error(err);
+      setRollQueue([]);
+      setRollNumber("");
+      setMessage({ type: "error", text: "Failed to load student roll queue for this exam." });
+    } finally {
+      setLoadingRollQueue(false);
+    }
+  }
+
+  function advanceToNextRoll(doneRoll: string) {
+    const normalizedDoneRoll = String(doneRoll || "").trim().toUpperCase();
+    if (!normalizedDoneRoll) return;
+
+    setRollQueue((prev) => {
+      const nextQueue = prev.filter((r) => r !== normalizedDoneRoll);
+      setRollNumber(nextQueue[0] || "");
+      return nextQueue;
+    });
   }
 
   function handleQuestionFilesChange(questionNumber: number, files: FileList | null) {
@@ -288,7 +346,7 @@ export default function TeacherMidtermPage() {
       if (!res.ok) throw new Error("Upload failed");
       await res.json();
       setMessage({ type: "success", text: `Success: Evaluated ${normalizedRoll}` });
-      setRollNumber("");
+      advanceToNextRoll(normalizedRoll);
       setQuestionUploads(Object.fromEntries(questionNumbers.map((q) => [q, []])));
     } catch (err) {
       const reason = err instanceof Error ? err.message : "Failed to process the answer sheet. Please try again.";
@@ -317,7 +375,7 @@ export default function TeacherMidtermPage() {
       });
       if (!res.ok) throw new Error("Failed to mark absent");
       setMessage({ type: "success", text: `Success: ${rollNumber.toUpperCase()} marked as absent.` });
-      setRollNumber("");
+      advanceToNextRoll(rollNumber.toUpperCase());
     } catch (err) {
       setMessage({ type: "error", text: "Failed to mark absent." });
     } finally {
@@ -532,9 +590,16 @@ export default function TeacherMidtermPage() {
                 <div className="grid gap-6 items-end grid-cols-1 md:grid-cols-[1fr_auto]">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Student Roll Number</label>
-                    <input type="text" placeholder="e.g. 25UCSE3001" required value={rollNumber} onChange={e => setRollNumber(e.target.value)}
+                    <input type="text" placeholder={loadingRollQueue ? "Loading roll queue..." : "e.g. 25UCSE3001"} required value={rollNumber} onChange={e => setRollNumber(e.target.value)}
                       className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-4 py-4 text-sm font-bold uppercase outline-none focus:ring-2 focus:ring-primary"
                     />
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                      {loadingRollQueue
+                        ? "Preparing pending roll list..."
+                        : rollQueue.length > 0
+                          ? `${rollQueue.length} pending in queue`
+                          : "No pending rolls found for this exam"}
+                    </p>
                   </div>
 
                   <div className="flex gap-2 w-full md:w-auto">
@@ -599,7 +664,7 @@ export default function TeacherMidtermPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {activeExams.map(ex => (
-            <div key={ex._id} onClick={() => { setSelectedExam(ex); resetAssemblyForm(ex); }} className="bg-surface-container border border-outline-variant/30 rounded-[2rem] p-6 shadow-sm hover:shadow-md hover:border-primary/50 cursor-pointer transition-all group">
+            <div key={ex._id} onClick={() => { setSelectedExam(ex); resetAssemblyForm(ex); void loadRollQueue(ex); }} className="bg-surface-container border border-outline-variant/30 rounded-[2rem] p-6 shadow-sm hover:shadow-md hover:border-primary/50 cursor-pointer transition-all group">
                <div className="flex justify-between items-start mb-6">
                   <div className="w-10 h-10 bg-surface-container-highest text-on-surface-variant rounded-xl flex items-center justify-center group-hover:bg-primary-container group-hover:text-on-primary-container transition-colors">
                      <span className="material-symbols-outlined text-lg">assignment</span>

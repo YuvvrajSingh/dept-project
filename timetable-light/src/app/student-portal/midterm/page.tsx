@@ -8,6 +8,11 @@ export default function StudentMidtermResultsPage() {
   const [selectedExamId, setSelectedExamId] = useState<string>("");
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingResults, setLoadingResults] = useState(false);
+  const [emptyStateMessage, setEmptyStateMessage] = useState(
+    "There are currently no digitized exam records active for your profile."
+  );
+  const [resultsMessage, setResultsMessage] = useState("");
 
   useEffect(() => {
     // 1. Fetch profile
@@ -22,9 +27,23 @@ export default function StudentMidtermResultsPage() {
       })
       .then(res => res.ok ? res.json() : { exams: [] })
       .then(data => {
-        setExams(data.exams || []);
-        if (data.exams && data.exams.length > 0) {
-          setSelectedExamId(data.exams[0]._id);
+        const allExams = Array.isArray(data.exams) ? data.exams : [];
+        const publishedExams = allExams.filter((ex: any) => Boolean(ex?.results_published));
+
+        setExams(publishedExams);
+        setResults(null);
+        setResultsMessage("");
+
+        if (publishedExams.length > 0) {
+          setSelectedExamId(String(publishedExams[0]._id));
+          return;
+        }
+
+        setSelectedExamId("");
+        if (allExams.length > 0) {
+          setEmptyStateMessage("Results are not published yet for your active exams.");
+        } else {
+          setEmptyStateMessage("There are currently no digitized exam records active for your profile.");
         }
       })
       .catch(err => console.error("Error fetching data:", err))
@@ -33,12 +52,37 @@ export default function StudentMidtermResultsPage() {
 
   useEffect(() => {
     if (!selectedExamId || !profile?.rollNumber) return;
-    
+
     // Fetch results for the selected exam
+    setLoadingResults(true);
+    setResults(null);
+    setResultsMessage("");
+
     fetch(`/api/gradeai/student/results/${selectedExamId}/${profile.rollNumber}`)
-      .then(res => res.ok ? res.json() : null)
+      .then(async (res) => {
+        if (res.ok) {
+          return res.json();
+        }
+
+        if (res.status === 403) {
+          setResultsMessage("Results are not published for this exam yet.");
+          return null;
+        }
+
+        if (res.status === 404) {
+          setResultsMessage("No graded result is available for your roll number yet.");
+          return null;
+        }
+
+        setResultsMessage("Unable to load results right now. Please try again.");
+        return null;
+      })
       .then(data => setResults(data))
-      .catch(err => console.error("Error fetching results", err));
+      .catch(err => {
+        console.error("Error fetching results", err);
+        setResultsMessage("Unable to load results right now. Please try again.");
+      })
+      .finally(() => setLoadingResults(false));
   }, [selectedExamId, profile]);
 
   if (loading) {
@@ -58,7 +102,7 @@ export default function StudentMidtermResultsPage() {
          <div className="p-12 text-center border-2 border-dashed border-outline-variant/40 rounded-[2rem]">
             <span className="material-symbols-outlined text-[4rem] text-on-surface-variant/30 mb-4">scan_delete</span>
             <h3 className="text-xl font-black uppercase text-on-surface">No Records Found</h3>
-            <p className="text-sm text-on-surface-variant max-w-sm mx-auto font-medium">There are currently no digitized exam records active for your profile.</p>
+          <p className="text-sm text-on-surface-variant max-w-sm mx-auto font-medium">{emptyStateMessage}</p>
          </div>
       ) : (
          <div className="space-y-8">
@@ -73,12 +117,17 @@ export default function StudentMidtermResultsPage() {
                        : "bg-surface-container-low text-on-surface-variant border border-outline-variant/30 hover:bg-surface-variant"
                    }`}
                  >
-                   {ex.subject}
+                   {ex.exam_name || `Exam ${ex._id}`}
                  </button>
                ))}
             </div>
 
-            {results ? (
+            {loadingResults ? (
+               <div className="p-12 text-center bg-surface-container-lowest border border-outline-variant/30 rounded-[2rem]">
+                 <span className="material-symbols-outlined text-[3rem] text-on-surface-variant/40 mb-4 animate-spin">sync</span>
+                 <p className="text-sm font-bold uppercase tracking-widest text-on-surface-variant">Synchronizing LEDGER...</p>
+               </div>
+            ) : results ? (
               <div className="space-y-6">
                 <div className="bg-surface-container border border-outline-variant/30 rounded-[2rem] p-8 md:p-12 shadow-sm flex flex-col md:flex-row justify-between items-center gap-10">
                    <div>
@@ -113,8 +162,10 @@ export default function StudentMidtermResultsPage() {
               </div>
             ) : (
                 <div className="p-12 text-center bg-surface-container-lowest border border-outline-variant/30 rounded-[2rem]">
-                   <span className="material-symbols-outlined text-[3rem] text-on-surface-variant/40 mb-4 animate-spin">sync</span>
-                   <p className="text-sm font-bold uppercase tracking-widest text-on-surface-variant">Synchronizing LEDGER...</p>
+                 <span className="material-symbols-outlined text-[3rem] text-on-surface-variant/40 mb-4">hourglass_empty</span>
+                 <p className="text-sm font-bold uppercase tracking-widest text-on-surface-variant">
+                  {resultsMessage || "No result record found for this exam yet."}
+                 </p>
                 </div>
             )}
          </div>

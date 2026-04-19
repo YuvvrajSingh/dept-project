@@ -668,22 +668,34 @@ def _process_pending_local(exam_id: int, target_roll: Optional[str] = None) -> D
                     except Exception as ocr_exc:
                         extracted_parts.append(f"[OCR_ERROR] {ocr_exc}")
 
-                extracted_text = "\n\n".join([txt for txt in extracted_parts if txt]).strip()
+                extracted_for_display = "\n\n".join([txt for txt in extracted_parts if txt]).strip()
+                extracted_text = "\n\n".join(
+                    [txt for txt in extracted_parts if txt and not str(txt).startswith("[OCR_ERROR]")]
+                ).strip()
+                extracted_display_text = extracted_for_display or "[OCR_UNREADABLE] No readable text extracted from image."
                 model_answer = str(question.get("model_answer") or "")
                 total_marks = float(question.get("total_marks") or 0)
 
-                try:
-                    grade_data = get_ai_grade(
-                        extracted_text or "No readable answer extracted.",
-                        model_answer,
-                        total_marks=total_marks,
-                    )
-                except Exception as grade_exc:
+                if not extracted_text:
                     grade_data = {
                         "marks_awarded": 0,
                         "grade": "F",
-                        "feedback": f"Local grading failed: {grade_exc}",
+                        "feedback": "unreadable",
+                        "similarity_score": None,
                     }
+                else:
+                    try:
+                        grade_data = get_ai_grade(
+                            extracted_text,
+                            model_answer,
+                            total_marks=total_marks,
+                        )
+                    except Exception as grade_exc:
+                        grade_data = {
+                            "marks_awarded": 0,
+                            "grade": "F",
+                            "feedback": f"Local grading failed: {grade_exc}",
+                        }
 
                 marks_awarded = float(grade_data.get("marks_awarded") or 0)
                 if marks_awarded < 0:
@@ -694,6 +706,11 @@ def _process_pending_local(exam_id: int, target_roll: Optional[str] = None) -> D
                 percentage = (marks_awarded / total_marks * 100) if total_marks > 0 else 0
                 grade = str(grade_data.get("grade") or _grade_from_percentage(percentage))
                 feedback = str(grade_data.get("feedback") or "")
+                similarity_score_raw = grade_data.get("similarity_score")
+                try:
+                    similarity_score = float(similarity_score_raw) if similarity_score_raw is not None else None
+                except Exception:
+                    similarity_score = None
 
                 ai_db.student_results.update_one(
                     {
@@ -708,8 +725,9 @@ def _process_pending_local(exam_id: int, target_roll: Optional[str] = None) -> D
                             "total_marks": total_marks,
                             "grade": grade,
                             "feedback": feedback,
+                            "similarity_score": similarity_score,
                             "image_path": ",".join(image_paths),
-                            "extracted_ocr_text": extracted_text,
+                            "extracted_ocr_text": extracted_display_text,
                             "model_answer": model_answer,
                             "updated_at": now,
                         },

@@ -1,5 +1,7 @@
 import requests
 import json
+import ast
+import re
 from sentence_transformers import SentenceTransformer, util
 from config import OLLAMA_BASE_URL, GRADING_MODEL
 
@@ -9,6 +11,90 @@ from config import OLLAMA_BASE_URL, GRADING_MODEL
 embedder = SentenceTransformer("all-mpnet-base-v2", device="cpu")
 
 ENABLE_CLEANING = False
+
+
+def _grade_from_percentage(percentage):
+    if percentage >= 85:
+        return "A"
+    if percentage >= 70:
+        return "B"
+    if percentage >= 55:
+        return "C"
+    if percentage >= 40:
+        return "D"
+    return "F"
+
+
+def _extract_json_object(raw_text):
+    text = (raw_text or "").replace("```json", "").replace("```", "").strip()
+    start = text.find("{")
+    if start == -1:
+        return None
+
+    in_string = False
+    escape = False
+    depth = 0
+
+    for i in range(start, len(text)):
+        ch = text[i]
+
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+
+        if ch == '"':
+            in_string = True
+            continue
+
+        if ch == "{":
+            depth += 1
+            continue
+
+        if ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+
+    if depth > 0:
+        # Recover from truncated output by appending missing closing braces.
+        return text[start:] + ("}" * depth)
+
+    return None
+
+
+def _try_parse_grade_payload(raw_text):
+    obj_text = _extract_json_object(raw_text)
+
+    if obj_text:
+        try:
+            parsed = json.loads(obj_text)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            try:
+                parsed = ast.literal_eval(obj_text)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
+
+    marks_match = re.search(r'"?marks_awarded"?\s*:\s*(-?\d+(?:\.\d+)?)', raw_text or "", flags=re.IGNORECASE)
+    grade_match = re.search(r'"?grade"?\s*:\s*"?([A-F])"?', raw_text or "", flags=re.IGNORECASE)
+    feedback_match = re.search(r'"?feedback"?\s*:\s*"([^\"]*)"', raw_text or "", flags=re.IGNORECASE)
+
+    if marks_match or grade_match or feedback_match:
+        return {
+            "marks_awarded": float(marks_match.group(1)) if marks_match else None,
+            "grade": grade_match.group(1).upper() if grade_match else None,
+            "feedback": feedback_match.group(1).strip() if feedback_match else None,
+        }
+
+    return None
 
 def clean_ocr_text(raw_text, skip=not ENABLE_CLEANING):
     if skip:
@@ -30,39 +116,22 @@ def get_similarity_score(student_answer, model_answer):
     score = util.cos_sim(s_emb, m_emb).item()
     return round(score * 100, 2)
 
-def get_max_marks_from_similarity(similarity, total_marks):
-    if similarity >= 90:
-        cap = 0.9
-    elif similarity >= 80:
-        cap = 0.8
-    elif similarity >= 70:
-        cap = 0.7
-    elif similarity >= 60:
-        cap = 0.6
-    elif similarity >= 50:
-        cap = 0.5
-    else:
-        cap = 0.4
-    return round(total_marks * cap)
-
 def get_ai_grade(student_answer, model_answer, total_marks=10):
     # 1. Calculate Semantic Similarity first (Crucial for the AI context)
     similarity = get_similarity_score(student_answer, model_answer)
     print(f"📊 Semantic Similarity: {similarity}%")
-    
-    max_marks = get_max_marks_from_similarity(similarity, total_marks)
 
     prompt = (
         "You are a fair university examiner. Your job is to evaluate CONCEPT UNDERSTANDING, not exact wording.\n\n"
         "Model Answer (reference):\n" + model_answer + "\n\n"
         "Student's Answer:\n" + student_answer + "\n\n"
         "Total marks for this question: " + str(total_marks) + "\n"
-        "Maximum marks you can award: " + str(max_marks) + " (based on semantic similarity)\n\n"
+        "Semantic similarity score: " + str(similarity) + " (low score means different phrasing, not necessarily wrong answer)\n\n"
         "Grading rules:\n"
-        "- You MUST award " + str(max_marks) + " if the student completely understood the concept (even in different words).\n"
-        "- You CANNOT award more than " + str(max_marks) + " marks.\n"
-        "- Judge whether the student understood the CONCEPT — different wording is fine.\n"
-        "- Award marks generously for partial knowledge within this limit.\n"
+        "- Judge correctness on meaning and concepts, not phrasing match.\n"
+        "- Different wording can still be fully correct.\n"
+        "- Award marks accordingly based on conceptual correctness.\n"
+        "- Do not over-penalize when wording differs from the model answer.\n"
         "- Only give very low marks if the answer is completely wrong or irrelevant.\n\n"
         "Respond ONLY in this exact JSON format, no extra text:\n"
         "{\n"
@@ -82,18 +151,25 @@ def get_ai_grade(student_answer, model_answer, total_marks=10):
             error_data = response.json() if response.text else {"error": "Empty response"}
             raise Exception(f"Ollama error {response.status_code}: {error_data.get('error', 'Unknown error')}")
 
-        raw = response.json()["response"].strip()
-        raw = raw.replace("```json", "").replace("```", "").strip()
-        
-        # Robust JSON extraction
-        start = raw.find("{")
-        end = raw.rfind("}") + 1
-        if start == -1 or end == 0:
-            print(f"❌ AI Output was not JSON: {raw}")
-            raise Exception("AI response format error")
-            
-        result = json.loads(raw[start:end])
-        result['marks_awarded'] = min(float(result['marks_awarded']), float(max_marks))
+        raw = response.json().get("response", "")
+        result = _try_parse_grade_payload(raw)
+        if not isinstance(result, dict):
+            print(f"❌ AI Output was not JSON: {(raw or '').strip()}")
+            return {
+                "marks_awarded": 0.0,
+                "grade": "F",
+                "feedback": "AI output parsing fallback applied due to malformed response.",
+                "similarity_score": similarity,
+            }
+
+        marks_awarded = float(result.get("marks_awarded") or 0)
+        marks_awarded = max(0.0, min(marks_awarded, float(total_marks)))
+        pct = (marks_awarded / float(total_marks) * 100.0) if float(total_marks) > 0 else 0.0
+
+        result["marks_awarded"] = marks_awarded
+        result["grade"] = str(result.get("grade") or _grade_from_percentage(pct)).upper()
+        result["feedback"] = str(result.get("feedback") or "Concept-level evaluation completed.")
+        result["similarity_score"] = similarity
         return result
         
     except Exception as e:
